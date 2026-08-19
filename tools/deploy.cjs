@@ -1,16 +1,20 @@
 // 部署 Amethyst Gaze 皮肤：
-//   1) 裁剪 theme.css 实心背景 → active-theme
-//   2) 替换引擎 dream-skin.css 皮肤块（Track 2）
+//   1) 裁剪版 theme.css → active-theme（Track 1，沙箱安全）
+//   2) 替换引擎 dream-skin.css 皮肤块（Track 2，高阶视觉）
 //   3) 把页内主题切换按钮（ag-toggle）注入引擎 renderer-inject.js
-// 用法：node tools/deploy.cjs  （部署后跑 tools/restart-injector.ps1 让引擎重载）
+// 用法：node tools/deploy.cjs  （部署后重启注入器或 reload Codex 生效）
 const fs = require('fs');
+const path = require('path');
 
-const ENGINE_CSS = 'C:/Users/观/AppData/Local/CodexDreamSkin/engine/assets/dream-skin.css';
-const ENGINE_JS = 'C:/Users/观/AppData/Local/CodexDreamSkin/engine/assets/renderer-inject.js';
-const SKIN_SRC = 'd:/Test/work1/amethyst-gaze-skin/preset/amethyst-gaze-v3.css';
-const THEME_CROPPED = 'd:/Test/work1/amethyst-gaze-skin/preset/theme-cropped.css';
-const TOGGLE_SRC = 'd:/Test/work1/amethyst-gaze-skin/preset/ag-toggle.js';
-const THEME_TARGET = 'C:/Users/观/AppData/Local/CodexDreamSkin/active-theme/theme.css';
+// 路径零硬编码：引擎目录走 LOCALAPPDATA，皮肤源走仓库相对路径
+const STATE_ROOT = path.join(process.env.LOCALAPPDATA, 'CodexDreamSkin');
+const PRESET_DIR = path.join(__dirname, '..', 'preset');
+const ENGINE_CSS = path.join(STATE_ROOT, 'engine', 'assets', 'dream-skin.css');
+const ENGINE_JS = path.join(STATE_ROOT, 'engine', 'assets', 'renderer-inject.js');
+const SKIN_SRC = path.join(PRESET_DIR, 'amethyst-gaze-v3.css');
+const THEME_CROPPED = path.join(PRESET_DIR, 'theme-cropped.css');
+const TOGGLE_SRC = path.join(PRESET_DIR, 'ag-toggle.js');
+const THEME_TARGET = path.join(STATE_ROOT, 'active-theme', 'theme.css');
 
 // 1) theme.css 裁剪（去实心背景；注意：此文件禁止任何 CSS 注释，否则沙箱校验崩溃）
 const cropped = fs.readFileSync(THEME_CROPPED, 'utf8');
@@ -37,7 +41,7 @@ fs.writeFileSync(ENGINE_CSS, next, 'utf8');
 
 console.log('dream-skin.css deployed. lines:', lines.length, '->', next.split('\n').length);
 console.log('  markers: glass token =', /--ag-glass-blur/.test(next),
-  ', keyframes ag-drift =', /@keyframes ag-drift/.test(next),
+  ', gold accent =', /--ag-gold-rgb/.test(next),
   ', gate count =', (next.match(/preset-amethyst-gaze/g) || []).length);
 
 // 3) renderer-inject.js：注入/刷新 ag-toggle 按钮块（幂等，标记定位）

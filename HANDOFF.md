@@ -2,7 +2,16 @@
 
 下一个人接手必读。这份文档把项目背景、已完成工作、设计决策、待定项一次性讲清楚。
 
-## ★ 最新状态（2026-08-20 凌晨，v3.11 · 收尾轮）
+## ★ 最新状态（2026-08-20 凌晨，v3.11 · 批判审查轮）
+
+以批判视角复查自己的工作，发现并修复四类真问题：
+
+1. **健康路径性能**（最大批判点）：guard 每分钟健康检查竟然跑 PowerShell + WMI 全进程扫描（300-800ms 磁盘/CPU 尖峰）——这是"还稍微有点卡"的残留源。重构为健康快路径纯 Node（fetch 探 CDP + `process.kill(pid, 0)` 探活，**零子进程**），实测 0.6s → **0.1s**；PowerShell/WMI 只在异常分支（pid 死/身份失配/CDP 死）才花这个钱。
+2. **路径硬编码**：deploy.cjs 写死 `C:/Users/观/...` 和 `d:/Test/work1/...`（别人没法用、项目挪位置断链）——全部改 `LOCALAPPDATA` + `__dirname`/`import.meta.url` 相对解析。
+3. **公有化隐私**：backup/ 含供应商配置（base_url、代理拓扑）与引擎源码副本——`.gitignore` 排除 + `git rm --cached`（本地保留作恢复保险，仓库不再含）。
+4. **死代码**：`@keyframes ag-drift` 引用已删但定义残留，且 deploy.cjs 的 marker 检查还在验证它存在（检查器锁死死代码的双重屎山）——keyframes 已删，marker 检查改为 gold accent；头注释 SIGNATURES 段同步纠正。
+
+## ★ v3.11（2026-08-20 凌晨，收尾轮）
 
 **当前 Codex 26.814 运行 v3.11**，源文件 `preset/amethyst-gaze-v3.css`。收尾三件事：
 

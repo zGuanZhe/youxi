@@ -87,22 +87,17 @@
  *   4) composer 规则全局门控（去 home 门控）。
  *   5) theme.css 裁剪去实心残留。
  *
- * SIGNATURES  6 个签名动效（保留）
- *   ag-drift  壳层背景 44s 极慢漂移（GPU transform）
+ * SIGNATURES  4 个保留动效（全部交互触发，无常驻动画——v3.11 清零）
  *   ag-rise   首页卡片错峰入场（0.55s × 4 delay）
  *   ag-sweep  卡片 hover 光带斜掠（0.7s）
- *   ag-pulse  输入框聚焦紫晶光环呼吸（2.6s）
- *   ag-icon   卡片图标 hover 微呼吸（3.2s）
- *   ag-shimmer 身份铭牌金光泽扫过（5s）
+ *   ag-pulse  输入框聚焦紫晶光环呼吸（2.6s，仅聚焦时）
+ *   ag-icon   卡片图标 hover 微呼吸（3.2s，仅 hover 时）
+ * 已移除（性能）：ag-drift 背景漂移、ag-shimmer 铭牌流光——
+ *   两者均为常驻动画，详见 v3.10/v3.11 变更记录。
  * ============================================================ */
 /* ------------------------------------------------------------
  * 0. KEYFRAMES（不可门控；动画仅在门控规则中引用）
  * ------------------------------------------------------------ */
-
-@keyframes ag-drift {
-  0%, 100% { transform: scale(1.004) translate(0%, 0%); }
-  50%      { transform: scale(1.009) translate(.22%, -.16%); }
-}
 
 @keyframes ag-rise {
   0%   { opacity: 0; transform: translateY(16px); }

@@ -10,10 +10,16 @@
 //      后 1 分钟内自动接管
 // 额外自愈：injector.mjs 两阶段退避补丁、renderer-inject.js 的
 //   ag-toggle 切换按钮块（引擎被上游更新覆盖时自动重打）。
+//
+// 性能设计（v2 重构）：健康路径（最常见分支）只做 fetch 探 CDP +
+// process.kill(pid, 0) 探活——全程纯 Node 零子进程；PowerShell/WMI
+// 全进程扫描是重量级操作（300-800ms 磁盘/CPU 尖峰），只在异常
+// 分支（pid 死 / 身份失配 / CDP 死）才花这个钱。
+//
 // 日志：LOCALAPPDATA\CodexDreamSkin\guard.log（256KB 截断）。
-// 用法：node ag-guard.mjs [--once]（默认即 once 语义）
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawn, execFileSync } from 'node:child_process';
 
 const STATE_ROOT = path.join(process.env.LOCALAPPDATA, 'CodexDreamSkin');
@@ -24,7 +30,8 @@ const INJECTOR_MJS = path.join(STATE_ROOT, 'engine', 'scripts', 'injector.mjs');
 const RENDERER_JS = path.join(STATE_ROOT, 'engine', 'assets', 'renderer-inject.js');
 const START_PS1 = path.join(STATE_ROOT, 'engine', 'scripts', 'start-dream-skin.ps1');
 const NODE_EXE = path.join(STATE_ROOT, 'engine', 'runtime', 'node', 'node.exe');
-const DEPLOY_CJS = 'd:/Test/work1/amethyst-gaze-skin/tools/deploy.cjs';
+// 仓库内 deploy.cjs（本文件同目录），项目挪位置不断链
+const DEPLOY_CJS = path.join(path.dirname(fileURLToPath(import.meta.url)), 'deploy.cjs');
 const LOG_MAX = 256 * 1024;
 
 const log = (msg) => {
@@ -36,14 +43,13 @@ const log = (msg) => {
     }
     fs.appendFileSync(LOG_PATH, line);
   } catch { /* 日志失败不阻断自愈 */ }
-  console.log(line.trim());
 };
 
 const readJson = (p) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } };
 
 // ---------- 1. 引擎补丁自愈 ----------
 
-// 两阶段退避补丁（同 tools/patch-early-window.cjs，幂等）
+// 两阶段退避补丁（幂等；详见 HANDOFF.md「引擎热修」节）
 const PATCH_ANCHOR = [
   '    if (install()) return;',
   '    document.addEventListener?.("DOMContentLoaded", install, { once: true });',
@@ -104,8 +110,14 @@ async function probeCdp(port) {
   } catch { return null; }
 }
 
+// 零成本进程探活：signal 0 不发信号只校验权限/存在性
+const pidAlive = (pid) => {
+  if (!pid || typeof pid !== 'number') return false;
+  try { process.kill(pid, 0); return true; } catch { return false; }
+};
+
+// 重量级全进程扫描（PowerShell+WMI，300-800ms）——仅异常分支使用
 function probeProcesses() {
-  // 一次 PowerShell 调用拿两类进程：ChatGPT.exe（Codex）与 injector node
   try {
     const out = execFileSync('powershell.exe', ['-NoProfile', '-Command',
       `Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'ChatGPT.exe' -or ($_.Name -eq 'node.exe' -and $_.CommandLine -like '*injector.mjs*') } | Select-Object ProcessId, CommandLine | ConvertTo-Json -Compress`,
@@ -176,7 +188,7 @@ function callStartScript(port) {
 //     是一次性进程，跑完即走——系统中不留任何常驻皮肤组件
 
 async function main() {
-  // 引擎补丁自愈（文件级，无条件先做）
+  // 引擎补丁自愈（文件级，无条件先做；纯字符串检查，~1ms）
   healInjectorPatch();
   healToggleBlock();
 
@@ -197,25 +209,33 @@ async function main() {
 
   if (browserId) {
     guardState.noCdpCount = 0;
-    // CDP 活：injector 进程健康？（pid 死或 browser-id 失配 → 快速路径重拉）
-    const procs = probeProcesses();
-    const injectorAlive = procs.injectorPids.length > 0;
     const idMatches = state.browserId === browserId;
 
-    if (injectorAlive && idMatches) {
-      // 完全健康。若 state 记录的 pid 不在实际列表里（旧 pid 被替换过），仅修 state
-      if (!procs.injectorPids.includes(state.injectorPid)) {
-        state.injectorPid = procs.injectorPids[0];
-        try { fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 4), 'utf8'); } catch {}
-      }
-      // 心跳：每小时记一行（静默运行可观测）
+    // ★ 健康快路径（最常见）：CDP 活 + state 记录的 injector pid
+    //   活 + 身份匹配 → 纯 Node 零子进程，直接静默退出。
+    //   只有 pid 探活失败才落到重量级全进程扫描兜底。
+    if (idMatches && pidAlive(state.injectorPid)) {
       const now = Date.now();
       if (now - (guardState.lastHealthyLogAt || 0) > 60 * 60 * 1000) {
         guardState.lastHealthyLogAt = now;
         log('healthy (skin active, injector alive, browser-id match)');
       }
       writeGuardState(guardState);
-      return; // 健康，静默退出
+      return;
+    }
+
+    // 异常路径：才花 PowerShell+WMI 的钱查全进程
+    const procs = probeProcesses();
+    const injectorAlive = procs.injectorPids.length > 0;
+
+    if (injectorAlive && idMatches) {
+      // state 的 pid 旧了但 injector 其实活着（如手动重启过）→ 只修 state
+      if (!procs.injectorPids.includes(state.injectorPid)) {
+        state.injectorPid = procs.injectorPids[0];
+        try { fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 4), 'utf8'); } catch {}
+      }
+      writeGuardState(guardState);
+      return;
     }
 
     if (injectorAlive && !idMatches) {
@@ -237,7 +257,7 @@ async function main() {
     return;
   }
 
-  // CDP 死：Codex 在跑吗？
+  // CDP 死：Codex 在跑吗？（此处无法零成本判断，值得花一次扫描）
   const procs = probeProcesses();
   if (procs.codexPids.length === 0) {
     guardState.noCdpCount = 0; // Codex 没开：无事可做（等用户打开）

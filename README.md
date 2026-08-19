@@ -2,7 +2,7 @@
 
 OpenAI Codex 桌面版自定义皮肤：紫金配色的全窗玻璃拟态（glassmorphism）视觉系统，带页内主题切换按钮与自愈守护。
 
-基于 [CodexDreamSkin](https://github.com/) 引擎的 Track 2 高阶视觉方案。当前版本 **v3.11**，适配 Codex 26.814。
+基于 CodexDreamSkin 引擎的 Track 2 高阶视觉方案。当前版本 **v3.11**，适配 Codex 26.814。
 
 ## 特性
 
@@ -29,7 +29,7 @@ OpenAI Codex 桌面版自定义皮肤：紫金配色的全窗玻璃拟态（glas
 │   ├── install-guard.ps1      注册/更新守护计划任务
 │   ├── verify-reload.cjs      回归：reload 后皮肤恢复验证
 │   └── test-toggle.cjs        回归：切换按钮开↔关闭环验证
-├── backup/                    引擎改造前备份（恢复保险）
+├── backup/                    引擎改造前备份（本地保留，不入库——含供应商配置）
 └── HANDOFF.md / DESIGN.md / RESEARCH.md / RESTORE.md
 ```
 
