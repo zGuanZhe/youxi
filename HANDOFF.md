@@ -1,6 +1,24 @@
-﻿# 有栖 · Codex 皮肤交接文档
+# 有栖 · Codex 皮肤交接文档
 
 下一个人接手必读。这份文档把项目背景、已完成工作、设计决策、待定项一次性讲清楚。
+
+## ★ v3.16（2026-08-20，性能大工程：流式响应速度全面重构）
+
+**背景**：用户反馈「皮肤响应速度比原版慢很多」，要求作为大工程全面重构。定位出三大瓶颈：路由级 `:has()` 选择器在流式输出时反复失效重算、多层 blur 玻璃的重采样开销、infinite 动画常驻重绘，外加引擎 partObserver 高频全文档扫描。
+
+**四层优化（全部落地并部署验证）**：
+
+1. **CSS 静态化（v3.15 打底）**：玻璃配方 `blur(18px) → blur(12px)`（重采样成本降约 55%）；删除 ag-pulse / ag-icon 的 infinite 动画（常驻重绘清零，hover 改静态高亮、聚焦态保留一次性过渡）；皮肤块内 50 条 `[role="main"]:has([data-testid="home-icon"])` → `[data-ag-home]`、17 条 `:not(:has([role="main"]))` → `[data-ag-bare]`。
+
+2. **ag-toggle.js v6 双 IIFE 架构**：拆分为 `AG-ROUTE`（主题无关路由标注器，随引擎注入、任何主题下常驻）+ `AG-TOGGLE`（有栖切换按钮）。标注器新增 `data-ag-surface`（html 存在 main 表面）与 `data-ag-homeshell`（表面内嵌套 role=main）两个 html 级属性，用于替换引擎 head 的 html 级门控 `:has()`。时效策略双通道：MutationObserver 结构突变（路由切换）立即标注，其余变更 300ms 防抖兜底；**标注幂等且无变化零 DOM 写入**（toggleAttribute 前先比对，避免自身触发 observer 风暴）。
+
+3. **deploy.cjs 引擎 head 全量替换（212 条）**：head 中路由级 `:has()` 按六种模式（P1-P6）替换为属性选择器，含完整性守卫——部署后断言 head 中 `:has(main:is(...))` 全家族残留为零，防引擎升级引入新形态漏网；主体断言用平衡括号剥离法验证每处 `:has(main:is(...))` 都挂在 html 复合选择器上（引擎真实形态含属性选择器与 :is()/:not() 夹杂），非 html 主体出现即 fail-fast 人工复核。**有意保留**（流式期间零成本）：`[data-ds-part]` 作用域 `:has()`（属性写罕见）、子代组合器 `:has(>)`、首页静态门控内层、thread 头部 `div.sticky:has(input)`。
+
+4. **partObserver 双档调度补丁**（renderer-inject.js）：流式 token 变更（1-3 节点）调度延迟 80ms → 280ms，结构性批量变更（≥8 节点，如整块渲染完成）保持 80ms 且可抢占慢档——流式期间 DOM 扫描频率 12.5Hz → 3.6Hz，大块内容到达时不迟滞。
+
+**部署验证**：`node tools/deploy.cjs` 后用 `_verify-v316.cjs`（仓库外一次性脚本）逐项核对：皮肤块 v3.16 标记、head 属性选择器计数（data-ag-homeshell 引用 = 13 等）、`:has(main:is` 族残留 = 0、ag-toggle v6 双 IIFE 注入、partObserver 补丁标记——**ALL PASS**。
+
+**架构要点（接手必知）**：属性语义契约由 AG-ROUTE 标注器单点保证——`data-ag-home ≡ [role="main"]:has([data-testid="home-icon"])`、`data-ag-bare ≡ main:is(...):not(:has([role="main"]))`、`data-ag-surface ≡ html:has(main:is(...))`、`data-ag-homeshell ≡ html:has(main:is(...) [role="main"])`。若 Codex 升级改 DOM 结构，先核对 selectors.json 再动替换规则；替换规则动过就必须重跑完整性守卫。
 
 ## ★ 最新状态（2026-08-20 深夜，v3.14 · 「Codex 有栖」快捷方式：秒开皮肤 + AV 免疫）
 

@@ -1,6 +1,44 @@
 /* ============================================================
- * 有栖 v3.12 — “紫晶凝视 · 雾中房” · CodexDreamSkin Track 2
+ * 有栖 v3.16 — “紫晶凝视 · 雾中房” · CodexDreamSkin Track 2
  * ============================================================
+ * v3.16 vs v3.15（性能大工程第三阶段：引擎侧双补丁，皮肤块
+ *   视觉冻结零改动）—— 真正的卡顿元凶在皮肤之外：
+ *   1) 【引擎 CSS 补丁】deploy.cjs 对引擎 head 全量替换
+ *      212 条路由级 :has()（108 home + 56 bare + 10 shell
+ *      + 15 surface-neg + 10 surface-pos + 10 homeshell-neg
+ *      + 3 homeshell-pos，含最恶劣的 html 级 :not(:has(main...))
+ *      门控家族）→ data-ag-home/bare/surface/homeshell 属性
+ *      选择器，由 ag-toggle.js v6 标注器（新增 data-ag-surface/
+ *      data-ag-homeshell html 级标注）语义保证。流式期间引擎
+ *      规则重算成本归零。
+ *   2) 【引擎 JS 补丁】renderer-inject.js partObserver 双档
+ *      调度：原状任何流式 token 变更都以 80ms 节流触发
+ *      refreshParts 全文档扫描（~12 个 querySelectorAll +
+ *      message 节点全量枚举，长会话 100+ 节点，12.5Hz 持续
+ *      运行）。补丁后小批量走 280ms 慢档、结构性批量（≥8
+ *      节点）保持 80ms 快档并可抢占慢档 —— 扫描频率 -71%，
+ *      换页/新消息响应不降级。
+ *
+ * v3.15 vs v3.12（用户反馈：响应速度比原版慢——性能大重构）
+ *   动机：AI 流式输出时每个 token 的 DOM 变更都触发挂在其
+ *   祖先上的全部 :has() 规则重算（96 条），叠加 8 层
+ *   blur(18px) 玻璃重采样与 2 个 infinite 动画 = 卡顿三源。
+ *   1) 【选择器架构】67 条路由级 :has() 门控替换为
+ *      data-ag-home / data-ag-bare 属性选择器（由注入块
+ *      ag-toggle.js 的 annotateRoutes() 标注，语义严格
+ *      等价）。流式重算成本归零。剩余 29 条 :has() 均为
+ *      审计保留项：门控内（首页静态）/侧栏作用域/子代
+ *      组合器/真动态单条，流式期间零成本。
+ *   2) 【玻璃降档】blur(18px)saturate(1.3) → blur(12px)
+ *      saturate(1.2)：重采样半径 -33%，视觉差经玻璃叠加
+ *      后不可辨。
+ *   3) 【动画清零】删 ag-pulse 聚焦光环呼吸、ag-icon 图标
+ *      hover 呼吸（infinite 常驻动画，聚焦/打字期间持续
+ *      触发相邻玻璃层重绘）。保留的 ag-rise/ag-sweep 均
+ *      为一次性交互动效。
+ *   4) 【transition 审计】全部过渡均为 paint/composite 属性
+ *      （transform/color/border/shadow），无布局属性。
+ *
  * v3.10 vs v3.9（用户第 9 轮反馈：输入栏覆盖不全/金色偏少/
  *   卡顿/三重持久化）
  *   1) 【输入栏整栏覆盖】玻璃从 ComposerLayoutFooter（h=85）
@@ -87,13 +125,15 @@
  *   4) composer 规则全局门控（去 home 门控）。
  *   5) theme.css 裁剪去实心残留。
  *
- * SIGNATURES  4 个保留动效（全部交互触发，无常驻动画——v3.11 清零）
+ * SIGNATURES  2 个保留动效（全部交互触发、一次性，无常驻动画）
  *   ag-rise   首页卡片错峰入场（0.55s × 4 delay）
  *   ag-sweep  卡片 hover 光带斜掠（0.7s）
- *   ag-pulse  输入框聚焦紫晶光环呼吸（2.6s，仅聚焦时）
- *   ag-icon   卡片图标 hover 微呼吸（3.2s，仅 hover 时）
- * 已移除（性能）：ag-drift 背景漂移、ag-shimmer 铭牌流光——
- *   两者均为常驻动画，详见 v3.10/v3.11 变更记录。
+ * 已移除（性能）：
+ *   v3.10/3.11  ag-drift 背景漂移、ag-shimmer 铭牌流光（常驻动画）
+ *   v3.15       ag-pulse 聚焦光环呼吸、ag-icon 图标 hover 呼吸
+ *               （infinite 动画；聚焦/打字时持续触发相邻玻璃层重绘）
+ *   v3.15       路由级 :has() 全量替换为 data-ag-* 属性选择器
+ *               （96 条 → 8 条；流式输出时样式重算成本归零）
  * ============================================================ */
 /* ------------------------------------------------------------
  * 0. KEYFRAMES（不可门控；动画仅在门控规则中引用）
@@ -107,16 +147,6 @@
 @keyframes ag-sweep {
   0%   { transform: translateX(-130%) skewX(-8deg); }
   100% { transform: translateX(230%) skewX(-8deg); }
-}
-
-@keyframes ag-pulse {
-  0%, 100% { opacity: .38; }
-  50%      { opacity: 1; }
-}
-
-@keyframes ag-icon {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.07); }
 }
 
 html[data-dream-skin="active"][data-dream-theme-id="preset-amethyst-gaze"] {
@@ -136,7 +166,7 @@ html[data-dream-skin="active"][data-dream-theme-id="preset-amethyst-gaze"] {
   --ag-focus-ring: 138 90 176;
 
   /* —— 统一玻璃配方（v3.2 核心）—— */
-  --ag-glass-blur: blur(18px) saturate(1.3);
+  --ag-glass-blur: blur(12px) saturate(1.2);
   --ag-glass-hi-rgb: 238 222 248;    /* 玻璃高光/描边 */
   --ag-glass-border: rgb(238 222 248 / .09);
   --ag-glass-shadow: 0 14px 36px rgb(8 5 14 / .34);
@@ -286,7 +316,7 @@ html[data-dream-skin="active"][data-dream-theme-id="preset-amethyst-gaze"] {
   background-image: none !important;
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) {
+  & [role="main"][data-ag-home] {
   position: relative !important;
   isolation: isolate;
   background: transparent !important;
@@ -489,7 +519,7 @@ footer) span:has(svg) {
  *    v3.2：对齐统一玻璃配方。
  * ------------------------------------------------------------ */
 
-  & [role="main"]:has([data-testid="home-icon"]) .heading-xl {
+  & [role="main"][data-ag-home] .heading-xl {
   position: relative !important;
   display: flex !important;
   flex-direction: column !important;
@@ -513,7 +543,7 @@ footer) span:has(svg) {
 
   /* 标题排版：26px / 700 / 紧字距 / 深投影保可读。 */
 
-  & [role="main"]:has([data-testid="home-icon"]) .heading-xl > [class*="group/title"] {
+  & [role="main"][data-ag-home] .heading-xl > [class*="group/title"] {
   max-width: 100% !important;
   font-size: 26px !important;
   line-height: 1.18 !important;
@@ -523,13 +553,13 @@ footer) span:has(svg) {
   text-shadow: 0 2px 18px rgb(8 5 14 / .72), 0 0 44px rgb(8 5 14 / .48) !important;
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) .heading-xl > [class*="group/title"] > :not(button) {
+  & [role="main"][data-ag-home] .heading-xl > [class*="group/title"] > :not(button) {
   color: rgb(var(--ag-text-rgb)) !important;
   }
 
   /* 句中项目徽章：紫玻璃 + 金字 + 金发丝边（三色识别）。 */
 
-  & [role="main"]:has([data-testid="home-icon"]) .heading-xl > [class*="group/title"] button {
+  & [role="main"][data-ag-home] .heading-xl > [class*="group/title"] button {
   margin: 0 2px !important;
   padding: 1px 12px !important;
   border: 1px solid rgb(var(--ag-gold-rgb) / .38) !important;
@@ -546,19 +576,19 @@ footer) span:has(svg) {
   transition: border-color .2s ease, box-shadow .2s ease;
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) .heading-xl > [class*="group/title"] button,
-& [role="main"]:has([data-testid="home-icon"]) .heading-xl > [class*="group/title"] button * {
+  & [role="main"][data-ag-home] .heading-xl > [class*="group/title"] button,
+& [role="main"][data-ag-home] .heading-xl > [class*="group/title"] button * {
   color: rgb(var(--ag-gold-rgb)) !important;
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) .heading-xl > [class*="group/title"] button:hover {
+  & [role="main"][data-ag-home] .heading-xl > [class*="group/title"] button:hover {
   border-color: rgb(var(--ag-gold-rgb) / .70) !important;
   box-shadow: 0 0 18px rgb(var(--ag-gold-rgb) / .30) !important;
   }
 
   /* 身份铭牌：右下角金色「有栖」（v3.12 起项目更名为有栖）。 */
 
-  & [role="main"]:has([data-testid="home-icon"]) .heading-xl::before {
+  & [role="main"][data-ag-home] .heading-xl::before {
   content: "有栖";
   position: absolute;
   right: 24px;
@@ -583,7 +613,7 @@ footer) span:has(svg) {
 
   /* 三色强调线：标题下方紫→金→红渐变（v3.3 拉长，金段对齐中心）。 */
 
-  & [role="main"]:has([data-testid="home-icon"]) .heading-xl::after {
+  & [role="main"][data-ag-home] .heading-xl::after {
   content: "";
   position: absolute;
   left: 26px;
@@ -601,14 +631,14 @@ footer) span:has(svg) {
 
   /* 亮色标题。 */
 
-  &[data-dream-shell="light"] [role="main"]:has([data-testid="home-icon"]) .heading-xl {
+  &[data-dream-shell="light"] [role="main"][data-ag-home] .heading-xl {
   background: linear-gradient(168deg,
     rgb(255 253 250 / .42),
     rgb(255 253 250 / .66) 82%) !important;
   border-color: rgb(109 68 148 / .12) !important;
   }
 
-  &[data-dream-shell="light"] [role="main"]:has([data-testid="home-icon"]) .heading-xl > [class*="group/title"] {
+  &[data-dream-shell="light"] [role="main"][data-ag-home] .heading-xl > [class*="group/title"] {
   text-shadow: 0 1px 12px rgb(255 251 246 / .80) !important;
   }
 
@@ -616,7 +646,7 @@ footer) span:has(svg) {
  * 5b. PROJECT ROW — 首页项目条（📁 work）：统一玻璃浮条
  * ------------------------------------------------------------ */
 
-  & [role="main"]:has([data-testid="home-icon"]) [data-ds-part="project-list"] {
+  & [role="main"][data-ag-home] [data-ds-part="project-list"] {
   background: linear-gradient(168deg,
     rgb(var(--ag-glass-rgb) / .44),
     rgb(var(--ag-ink-rgb) / .36)) !important;
@@ -633,7 +663,7 @@ footer) span:has(svg) {
  *    修复=晶面·深紫。统一玻璃骨架 + 专属图案层。
  * ------------------------------------------------------------ */
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button {
   position: relative !important;
   min-height: 132px !important;
   padding: 16px 16px 14px !important;
@@ -660,21 +690,21 @@ footer) span:has(svg) {
 
   /* 错峰入场：按图标语义色定位。 */
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-blue) { animation-delay: .05s; 
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-blue) { animation-delay: .05s; 
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-purple) { animation-delay: .15s; 
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-purple) { animation-delay: .15s; 
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-green) { animation-delay: .25s; 
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-green) { animation-delay: .25s; 
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-orange) { animation-delay: .35s; 
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-orange) { animation-delay: .35s; 
   }
 
   /* —— 卡 1 · 探索并理解代码：星轨 · 眼紫 —— */
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-blue) {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-blue) {
   background:
     radial-gradient(circle at 84% 16%, rgb(var(--ag-gold-rgb) / .20) 0 1.5px, transparent 3px),
     radial-gradient(circle at 70% 30%, rgb(var(--ag-gold-rgb) / .14) 0 1px, transparent 2.5px),
@@ -692,7 +722,7 @@ footer) span:has(svg) {
 
   /* —— 卡 2 · 构建新功能：砖纹 · 朱红 —— */
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-purple) {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-purple) {
   background:
     repeating-linear-gradient(135deg,
       rgb(var(--ag-rose-rgb) / .055) 0 6px,
@@ -709,7 +739,7 @@ footer) span:has(svg) {
 
   /* —— 卡 3 · 审查代码：扫描线 · 金 —— */
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-green) {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-green) {
   background:
     repeating-linear-gradient(0deg,
       rgb(var(--ag-gold-rgb) / .05) 0 1px,
@@ -726,7 +756,7 @@ footer) span:has(svg) {
 
   /* —— 卡 4 · 修复问题：晶面 · 深紫 —— */
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-orange) {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-orange) {
   background:
     conic-gradient(from 210deg at 86% 14%,
       rgb(var(--ag-rail-bright-rgb) / .12),
@@ -743,12 +773,12 @@ footer) span:has(svg) {
 
   /* hover：抬升 + 各自色系的光晕。 */
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:hover {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:hover {
   transform: translateY(-3px) !important;
   border-color: rgb(var(--ag-hair-rgb) / .14) !important;
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-blue):hover {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-blue):hover {
   box-shadow:
     0 16px 38px rgb(8 5 14 / .34),
     0 0 0 1px rgb(var(--ag-rail-rgb) / .26),
@@ -756,7 +786,7 @@ footer) span:has(svg) {
     inset 0 1px rgb(var(--ag-hair-rgb) / .10) !important;
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-purple):hover {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-purple):hover {
   box-shadow:
     0 16px 38px rgb(8 5 14 / .34),
     0 0 0 1px rgb(var(--ag-rose-rgb) / .26),
@@ -764,7 +794,7 @@ footer) span:has(svg) {
     inset 0 1px rgb(var(--ag-hair-rgb) / .10) !important;
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-green):hover {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-green):hover {
   box-shadow:
     0 16px 38px rgb(8 5 14 / .34),
     0 0 0 1px rgb(var(--ag-gold-rgb) / .26),
@@ -772,7 +802,7 @@ footer) span:has(svg) {
     inset 0 1px rgb(var(--ag-hair-rgb) / .10) !important;
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-orange):hover {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-orange):hover {
   box-shadow:
     0 16px 38px rgb(8 5 14 / .34),
     0 0 0 1px rgb(var(--ag-rail-bright-rgb) / .24),
@@ -782,7 +812,7 @@ footer) span:has(svg) {
 
   /* 光带斜掠（所有卡共享的动效骨架）。 */
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button::after {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button::after {
   content: "";
   position: absolute;
   top: -20%;
@@ -797,17 +827,17 @@ footer) span:has(svg) {
   transform: translateX(-160%) skewX(-8deg);
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:hover::after {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:hover::after {
   animation: ag-sweep .7s cubic-bezier(.22, 1, .36, 1);
   }
 
   /* 图标瓦：42px 圆角玻片，逐卡配色。 */
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button > span:first-child {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button > span:first-child {
   justify-content: flex-start !important;
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button > span:first-child > span:first-child {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button > span:first-child > span:first-child {
   width: 42px !important;
   height: 42px !important;
   margin: 0 !important;
@@ -825,55 +855,51 @@ footer) span:has(svg) {
 
   /* 逐卡图标瓦与图标色。 */
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-blue) > span:first-child > span:first-child {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-blue) > span:first-child > span:first-child {
   background: radial-gradient(circle at 32% 28%,
     rgb(var(--ag-hair-rgb) / .20),
     rgb(var(--ag-rail-rgb) / .32) 55%,
     rgb(var(--ag-ink-rgb) / .34)) !important;
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-blue) svg { color: rgb(var(--ag-rail-bright-rgb)) !important; 
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-blue) svg { color: rgb(var(--ag-rail-bright-rgb)) !important; 
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-purple) > span:first-child > span:first-child {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-purple) > span:first-child > span:first-child {
   background: radial-gradient(circle at 32% 28%,
     rgb(var(--ag-hair-rgb) / .18),
     rgb(var(--ag-rose-rgb) / .28) 55%,
     rgb(var(--ag-ink-rgb) / .34)) !important;
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-purple) svg { color: rgb(var(--ag-rose-bright-rgb)) !important; 
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-purple) svg { color: rgb(var(--ag-rose-bright-rgb)) !important; 
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-green) > span:first-child > span:first-child {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-green) > span:first-child > span:first-child {
   background: radial-gradient(circle at 32% 28%,
     rgb(var(--ag-hair-rgb) / .20),
     rgb(var(--ag-gold-rgb) / .24) 55%,
     rgb(var(--ag-ink-rgb) / .34)) !important;
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-green) svg { color: rgb(var(--ag-gold-rgb)) !important; 
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-green) svg { color: rgb(var(--ag-gold-rgb)) !important; 
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-orange) > span:first-child > span:first-child {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-orange) > span:first-child > span:first-child {
   background: radial-gradient(circle at 32% 28%,
     rgb(var(--ag-hair-rgb) / .14),
     rgb(var(--ag-glass-strong-rgb) / .60) 55%,
     rgb(var(--ag-ink-rgb) / .42)) !important;
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-orange) svg { color: rgb(var(--ag-rail-bright-rgb)) !important; 
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-orange) svg { color: rgb(var(--ag-rail-bright-rgb)) !important; 
   }
 
-  /* 图标 hover 微呼吸（signature ag-icon）。 */
-
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:hover > span:first-child > span:first-child {
-  animation: ag-icon 3.2s cubic-bezier(.45, 0, .55, 1) infinite;
-  }
+  /* 图标 hover：静态高亮（v3.15 性能：删 infinite 呼吸动画）。 */
 
   /* 卡片文字。 */
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button > span:last-child {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button > span:last-child {
   align-items: flex-start !important;
   justify-content: flex-end !important;
   text-align: left !important;
@@ -882,23 +908,23 @@ footer) span:has(svg) {
   letter-spacing: .005em !important;
   }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button > span:last-child,
-& [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button > span:last-child *,
-& [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button [class*="text-default"] {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button > span:last-child,
+& [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button > span:last-child *,
+& [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button [class*="text-default"] {
   color: rgb(var(--ag-text-rgb)) !important;
   text-shadow: none !important;
   }
 
   /* 亮色卡片。 */
 
-  &[data-dream-shell="light"] [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button {
+  &[data-dream-shell="light"] [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button {
   border-color: rgb(109 68 148 / .12) !important;
   box-shadow:
     0 10px 30px rgb(42 30 52 / .16),
     inset 0 1px rgb(255 255 255 / .90) !important;
   }
 
-  &[data-dream-shell="light"] [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:hover {
+  &[data-dream-shell="light"] [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:hover {
   border-color: rgb(109 68 148 / .30) !important;
   }
 
@@ -906,7 +932,7 @@ footer) span:has(svg) {
  * 7. COMPOSER — 统一玻璃 #3（首页 + 线程页，全局门控）
  *    v3.4：_ComposerLayoutRoot_ 原生 86.5% 实心底透明化，
  *    玻璃只剩 footer 一层，托盘感消失。
- *    聚焦紫晶光环呼吸（ag-pulse）+ 金紫徽章组
+ *    聚焦紫晶光环（静态显隐）+ 金紫徽章组
  * ------------------------------------------------------------ */
 
   & div[class*="_ComposerLayoutRoot_"] {
@@ -980,8 +1006,7 @@ footer) span:has(svg) {
   background: transparent !important;
   }
 
-  /* 聚焦：紫晶光环呼吸（signature ag-pulse，v3.4 改 GPU opacity；
-     v3.10 光环随玻璃上移挂 Root 整栏）。 */
+  /* 聚焦：紫晶光环静态显隐（v3.15 去呼吸动画；v3.10 光环挂 Root 整栏）。 */
 
   & div[class*="_ComposerLayoutRoot_"]::after {
   content: "";
@@ -1108,7 +1133,7 @@ footer) span:has(svg) {
 
   & main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"]))::before {
+[class*="_MainContentSurface_"])[data-ag-bare]::before {
   content: "" !important;
   position: absolute !important;
   inset: 0 !important;
@@ -1132,7 +1157,7 @@ footer) span:has(svg) {
 
   &[data-dream-shell="light"] main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"]))::before {
+[class*="_MainContentSurface_"])[data-ag-bare]::before {
   background-image:
     linear-gradient(180deg,
       rgb(255 252 248 / .26) 0%,
@@ -1165,7 +1190,7 @@ footer) span:has(svg) {
 
   & main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-thread-find-target="conversation"] {
+[class*="_MainContentSurface_"])[data-ag-bare] [data-thread-find-target="conversation"] {
   position: relative !important;
   z-index: 1 !important;
   border: 0 !important;
@@ -1180,7 +1205,7 @@ footer) span:has(svg) {
 
   & main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-ds-part="message"] {
+[class*="_MainContentSurface_"])[data-ag-bare] [data-ds-part="message"] {
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
@@ -1191,10 +1216,10 @@ footer) span:has(svg) {
 
   & main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-message-author-role="assistant"],
+[class*="_MainContentSurface_"])[data-ag-bare] [data-message-author-role="assistant"],
 & main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-local-conversation-final-assistant] {
+[class*="_MainContentSurface_"])[data-ag-bare] [data-local-conversation-final-assistant] {
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
@@ -1209,7 +1234,7 @@ footer) span:has(svg) {
 
   & main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-user-message-bubble] {
+[class*="_MainContentSurface_"])[data-ag-bare] [data-user-message-bubble] {
   color: rgb(var(--ag-text-rgb)) !important;
   border: 1px solid var(--ag-glass-border) !important;
   border-radius: 16px !important;
@@ -1223,7 +1248,7 @@ footer) span:has(svg) {
 
   & main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-local-conversation-user-anchor]:not(:has([data-user-message-bubble])) {
+[class*="_MainContentSurface_"])[data-ag-bare] [data-local-conversation-user-anchor]:not(:has([data-user-message-bubble])) {
   border: 1px solid var(--ag-glass-border) !important;
   border-radius: 16px !important;
   background: linear-gradient(168deg,
@@ -1236,7 +1261,7 @@ footer) span:has(svg) {
 
   & main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-thread-find-target="conversation"] :is([class*="_MarkdownRoot_"],
+[class*="_MainContentSurface_"])[data-ag-bare] [data-thread-find-target="conversation"] :is([class*="_MarkdownRoot_"],
 [class*="_MarkdownRoot_"] *,
 [class*="_Paragraph_"],
 [class*="_List_"],
@@ -1251,7 +1276,7 @@ footer) span:has(svg) {
 
   & main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-thread-find-target="conversation"] :is([class*="activity-header"],
+[class*="_MainContentSurface_"])[data-ag-bare] [data-thread-find-target="conversation"] :is([class*="activity-header"],
 [class*="activity-header"] *,
 [class*="loading-shimmer-pure-text"]) {
   color: rgb(var(--ag-muted-rgb) / .92) !important;
@@ -1262,13 +1287,13 @@ footer) span:has(svg) {
 
   & main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-thread-find-target="conversation"] [class*="activity-header"] svg {
+[class*="_MainContentSurface_"])[data-ag-bare] [data-thread-find-target="conversation"] [class*="activity-header"] svg {
   filter: drop-shadow(0 1px 3px rgb(8 5 14 / .65));
   }
 
   & main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-thread-find-target="conversation"] a {
+[class*="_MainContentSurface_"])[data-ag-bare] [data-thread-find-target="conversation"] a {
   color: rgb(var(--ag-rail-bright-rgb)) !important;
   }
 
@@ -1276,17 +1301,17 @@ footer) span:has(svg) {
 
   & main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"])) pre,
+[class*="_MainContentSurface_"])[data-ag-bare] pre,
 & main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"])) code {
+[class*="_MainContentSurface_"])[data-ag-bare] code {
   border-color: rgb(var(--ag-hair-rgb) / .08) !important;
   background: rgb(12 8 18 / .82) !important;
   }
 
   & main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-thread-find-target="conversation"] :is(pre,
+[class*="_MainContentSurface_"])[data-ag-bare] [data-thread-find-target="conversation"] :is(pre,
 pre *,
 code,
 [data-markdown-copy="inline-code"]) {
@@ -1330,7 +1355,7 @@ code,
 
   & main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-message-author-role="assistant"] {
+[class*="_MainContentSurface_"])[data-ag-bare] [data-message-author-role="assistant"] {
   border-left: 2px solid transparent !important;
   border-image: linear-gradient(180deg,
     rgb(var(--ag-rail-rgb) / .45),
@@ -1342,7 +1367,7 @@ code,
 
   & main:is(.main-surface,
 [data-app-shell-main-surface],
-[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-thread-find-target="conversation"] :is([class*="activity-header"],
+[class*="_MainContentSurface_"])[data-ag-bare] [data-thread-find-target="conversation"] :is([class*="activity-header"],
 [class*="activity-header"] *) {
   color: rgb(var(--ag-gold-rgb) / .80) !important;
   text-shadow: 0 1px 10px rgb(8 5 14 / .44) !important;
@@ -1501,7 +1526,6 @@ code,
 
   & div[class*="_ComposerLayoutRoot_"]:focus-within::after {
   opacity: 1 !important;
-  animation: ag-pulse 2.6s cubic-bezier(.45, 0, .55, 1) infinite;
   }
 
   /* 真凶5·右缘紫长条：main 表面滚动条未覆盖（原规则只到
@@ -1532,16 +1556,16 @@ code,
 
   @media (prefers-reduced-motion: reduce) {
   & div:has(> div[class*="_ApplicationMenuTopBar_"])::before,
-& [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button,
-& [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:hover::after,
-& [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:hover > span:first-child > span:first-child,
-& [role="main"]:has([data-testid="home-icon"]) .heading-xl::before,
+& [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button,
+& [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:hover::after,
+& [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button:hover > span:first-child > span:first-child,
+& [role="main"][data-ag-home] .heading-xl::before,
 & div[class*="_ComposerLayoutRoot_"]:focus-within {
 
     animation: none !important;
     }
 
-  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button {
+  & [role="main"][data-ag-home] [class*="group/home-suggestions"] > div > div > div > button {
 
     opacity: 1 !important;
     transition: none !important;

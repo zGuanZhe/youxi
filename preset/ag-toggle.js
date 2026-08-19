@@ -1,5 +1,5 @@
 /* ============================================================
- * ag-toggle.js — 有栖（Arisu）页内主题切换按钮 v2
+ * ag-toggle.js — 有栖（Arisu）注入块 v6（路由标注器 + 切换按钮）
  * ============================================================
  * 嵌入契约：本文件由 tools/deploy.cjs 原样注入引擎
  * renderer-inject.js 的 IIFE 内部（最终 return 之前），
@@ -7,6 +7,24 @@
  * STYLE_REGISTRY_KEY / STYLE_ID / PART_ATTR / ROOT_ATTRS /
  * THEME_VARIABLES。不可独立运行，不可包含
  * __DREAM_SKIN_*__ 占位符。
+ *
+ * v6 结构（v3.16 性能大工程）：双 IIFE——
+ *   [AG-ROUTE] 路由标注器（主题无关，任何 Dream Skin 主题生效）
+ *     annotateRoutes() 用属性标注替代引擎 head 全部路由级
+ *     :has() 选择器（deploy.cjs 机械替换 212 条）：
+ *       [role="main"] 含 home-icon            → data-ag-home
+ *       main 表面无嵌套 [role=main]           → data-ag-bare
+ *       html 存在 main 表面后代（html 级门控）→ data-ag-surface
+ *       html 存在 surface 包裹 role=main（html 级，
+ *       home 页正门控/thread 页负门控）       → data-ag-homeshell
+ *     标注器必须在任何主题下都运行（引擎规则不挑主题），
+ *     独立于下方按钮的门控。
+ *     双通道时效：结构突变（main/role=main/home-icon 增删，
+ *     或单批 ≥20 节点=路由切换）立即标注，防换页样式闪断；
+ *     其余变更随 300ms 防抖 reconcile。标注幂等，无变化零
+ *     DOM 写入；data-ag-* 不参与皮肤痕迹剥离（stripSkin 只清
+ *     data-dream-*），开关切换零影响。
+ *   [AG-TOGGLE] 主题切换按钮（仅有栖主题，见下方 v3/v2 变更）
  *
  * v3 变更（用户反馈：仍无法点击 + 去光晕去立体）：
  *   1) 【点击修复·根因】Shadow DOM 内 style 声明的
@@ -41,6 +59,125 @@
  *   - 无常驻定时器；观察器 300ms 防抖 + 已挂载早退，
  *     稳态开销≈0
  * ============================================================ */
+
+/* ==== AG-ROUTE — 路由标注器（主题无关；引擎 head 与皮肤块
+ *     的 :has() → data-ag-* 机械替换都消费这些属性） ==== */
+  (() => {
+    const ROUTE_REGISTRY = "__AG_ROUTE_REGISTRY__";
+    const previous = window[ROUTE_REGISTRY];
+    if (previous) {
+      try { previous.dispose?.(); } catch {}
+      delete window[ROUTE_REGISTRY];
+    }
+
+    // 语义与被替代的 :has() 严格一致：
+    //   data-ag-home     ≡ [role="main"]:has([data-testid="home-icon"])
+    //   data-ag-bare     ≡ main:is(...):not(:has([role="main"]))
+    //   data-ag-surface  ≡ html:has(main:is(...))（html 级门控，
+    //                      正/负两种形态共用一个属性）
+    //   data-ag-homeshell ≡ html:has(main:is(...) [role="main"])（html 级，
+    //                      surface 包裹 role=main = home 页；与
+    //                      data-ag-surface 组合表达 thread 页负向门控）
+    // :has() 只算后代不算自身，故 contains 检查需排除 m===s。
+    const annotateRoutes = () => {
+      try {
+        const homeIcon = document.querySelector('[data-testid="home-icon"]');
+        const mains = document.querySelectorAll('[role="main"]');
+        for (const el of mains) {
+          const want = !!homeIcon && el.contains(homeIcon);
+          if (want !== el.hasAttribute("data-ag-home")) {
+            el.toggleAttribute("data-ag-home", want);
+          }
+        }
+        let hasSurface = false;
+        let hasNested = false;
+        for (const s of document.querySelectorAll("main")) {
+          const isSurface = s.classList.contains("main-surface") ||
+            s.hasAttribute("data-app-shell-main-surface") ||
+            String(s.className).includes("_MainContentSurface_");
+          if (!isSurface) continue;
+          hasSurface = true;
+          let bare = true;
+          for (const m of mains) {
+            if (m !== s && s.contains(m)) { bare = false; break; }
+          }
+          if (!bare) hasNested = true;
+          if (bare !== s.hasAttribute("data-ag-bare")) {
+            s.toggleAttribute("data-ag-bare", bare);
+          }
+        }
+        const root = document.documentElement;
+        if (root) {
+          if (hasSurface !== root.hasAttribute("data-ag-surface")) {
+            root.toggleAttribute("data-ag-surface", hasSurface);
+          }
+          if (hasNested !== root.hasAttribute("data-ag-homeshell")) {
+            root.toggleAttribute("data-ag-homeshell", hasNested);
+          }
+        }
+      } catch { /* 标注失败不阻断页面 */ }
+    };
+    const isRouteNode = (node) => node.nodeType === 1 && (
+      node.tagName === "MAIN" ||
+      node.getAttribute?.("role") === "main" ||
+      node.getAttribute?.("data-testid") === "home-icon"
+    );
+    const routeRelevant = (records) => {
+      for (const record of records) {
+        if (record.type !== "childList") continue;
+        // 路由切换 = React 整块换子树，单批节点数大
+        if (record.addedNodes.length >= 20 || record.removedNodes.length >= 20) return true;
+        for (const n of record.addedNodes) if (isRouteNode(n)) return true;
+        for (const n of record.removedNodes) if (isRouteNode(n)) return true;
+      }
+      return false;
+    };
+
+    let disposed = false;
+    const timers = new Set();
+    const later = (fn, delay) => {
+      const timer = setTimeout(() => { timers.delete(timer); fn(); }, delay);
+      timers.add(timer);
+    };
+    const registry = {
+      observer: null,
+      dispose: () => {
+        disposed = true;
+        for (const timer of timers) clearTimeout(timer);
+        timers.clear();
+        registry.observer?.disconnect();
+      },
+    };
+    window[ROUTE_REGISTRY] = registry;
+
+    // 冷启动：shell/主线区渐进就位，梯度补标
+    annotateRoutes();
+    [0, 300, 800, 1600].forEach((delay) => later(annotateRoutes, delay));
+
+    // 防抖观察器：结构突变立即标注，其余 300ms 防抖兜底。
+    let pending = false;
+    const onDomActivity = (records) => {
+      if (disposed) return;
+      if (records && routeRelevant(records)) annotateRoutes();
+      if (pending) return;
+      pending = true;
+      later(() => {
+        pending = false;
+        annotateRoutes();
+      }, 300);
+    };
+    const observer = new MutationObserver(onDomActivity);
+    const observeBody = () => {
+      if (!disposed) observer.observe(document.body, { childList: true, subtree: true });
+    };
+    if (document.body) observeBody();
+    else {
+      document.addEventListener("DOMContentLoaded", observeBody, { once: true });
+    }
+    registry.observer = observer;
+  })();
+
+/* ==== AG-TOGGLE — 主题切换按钮（仅有栖主题） ==== */
   (() => {
     if ((THEME.id || "") !== "preset-amethyst-gaze") return;
 
