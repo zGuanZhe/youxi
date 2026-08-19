@@ -1,15 +1,20 @@
-// ag-guard.mjs — Amethyst Gaze 皮肤自愈守护（一次性进程）
+// ag-guard.mjs — 有栖皮肤自愈守护（一次性进程 + 快捷方式协同）
 // ============================================================
 // 由计划任务每 1 分钟调用，跑完即退：零常驻内存、零后台 CPU。
-// 解决三大持久化场景（皮肤与 Codex 生命周期解耦）：
-//   1) CC Switch 切换供应商 → Codex 重启 → browser-id 变化 →
-//      旧 injector 身份锚点断开自杀 → guard 快速路径重拉 injector
-//   2) Codex 升级/手动重启 → Codex 无 CDP 端口启动 → guard 调
-//      start-dream-skin.ps1 重启 Codex 带 CDP（冷却 2 周期防抖）
-//   3) 电脑重启 → 计划任务登录触发 + 每分钟重复 → 用户开 Codex
-//      后 1 分钟内自动接管
+// 日常主路径（2026-08-20 v3.14 起）：用户从开始菜单「Codex 有栖」
+// 快捷方式启动 → 冷启动首帧即皮肤（launch-codex-youxi.ps1 一条龙），
+// guard 不参与。guard 只兜底两条路径：
+//   1) Codex 在跑但皮肤掉线（injector 死 / browser-id 变化）→ 快速重拉
+//   2) 用户绕过快捷方式裸开 Codex（Store 入口 / CC Switch 直接拉起）→
+//      无 CDP → 单周期即接管重启（原为 2 周期 + 3 分钟冷却，已提速）
 // 额外自愈：injector.mjs 两阶段退避补丁、renderer-inject.js 的
 //   ag-toggle 切换按钮块（引擎被上游更新覆盖时自动重打）。
+//
+// 接管防冲突三闸门（v3.14）：
+//   - launch-in-progress 标记（快捷方式启动进行中 → 让路）
+//   - lastStartAt 90s 冷却（防验证失败循环）
+//   - 8s 进程稳定性复检（Codex 正在退出时 pids 会缩水 → 不接管，
+//     杜绝"用户刚关 Codex 又被拉起来"的僵尸复活）
 //
 // 性能设计（v2 重构）：健康路径（最常见分支）只做 fetch 探 CDP +
 // process.kill(pid, 0) 探活——全程纯 Node 零子进程；PowerShell/WMI
@@ -26,6 +31,7 @@ const STATE_ROOT = path.join(process.env.LOCALAPPDATA, 'CodexDreamSkin');
 const STATE_PATH = path.join(STATE_ROOT, 'state.json');
 const GUARD_STATE_PATH = path.join(STATE_ROOT, 'guard-state.json');
 const LOG_PATH = path.join(STATE_ROOT, 'guard.log');
+const LAUNCH_FLAG = path.join(STATE_ROOT, 'launch-in-progress');
 const INJECTOR_MJS = path.join(STATE_ROOT, 'engine', 'scripts', 'injector.mjs');
 const RENDERER_JS = path.join(STATE_ROOT, 'engine', 'assets', 'renderer-inject.js');
 const NODE_EXE = path.join(STATE_ROOT, 'engine', 'runtime', 'node', 'node.exe');
@@ -45,6 +51,11 @@ const log = (msg) => {
 };
 
 const readJson = (p) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } };
+
+// 快捷方式启动标记年龄（秒）；Infinity = 无标记
+const launchFlagAgeMs = () => {
+  try { return Date.now() - fs.statSync(LAUNCH_FLAG).mtimeMs; } catch { return Infinity; }
+};
 
 // ---------- 1. 引擎补丁自愈 ----------
 
@@ -217,13 +228,20 @@ async function main() {
   healToggleBlock();
 
   const state = readJson(STATE_PATH);
-  const guardState = readJson(GUARD_STATE_PATH) || { noCdpCount: 0, lastStartAt: 0 };
+  const guardState = readJson(GUARD_STATE_PATH) || { lastStartAt: 0 };
 
   // 无 state：托盘从未 Apply 过，或上次回滚删除——完整 start
+  // （快捷方式启动进行中时让路，避免与引擎脚本双重接管）
   if (!state || !state.port) {
+    if (launchFlagAgeMs() < 150 * 1000) {
+      log('no state but shortcut launch in flight — standing by');
+      return;
+    }
     const procs = probeProcesses();
     if (procs.codexPids.length > 0) {
       log('no state.json but Codex is running — full start');
+      guardState.lastStartAt = Date.now();
+      writeGuardState(guardState);
       callStartScript(9335);
     }
     return;
@@ -232,7 +250,6 @@ async function main() {
   const browserId = await probeCdp(state.port);
 
   if (browserId) {
-    guardState.noCdpCount = 0;
     const idMatches = state.browserId === browserId;
 
     // ★ 健康快路径（最常见）：CDP 活 + state 记录的 injector pid
@@ -275,6 +292,7 @@ async function main() {
     const ok = await pullInjector(state, browserId);
     if (!ok) {
       log('quick pull failed — falling back to full start');
+      guardState.lastStartAt = Date.now();
       callStartScript(state.port);
     }
     writeGuardState(guardState);
@@ -284,24 +302,43 @@ async function main() {
   // CDP 死：Codex 在跑吗？（此处无法零成本判断，值得花一次扫描）
   const procs = probeProcesses();
   if (procs.codexPids.length === 0) {
-    guardState.noCdpCount = 0; // Codex 没开：无事可做（等用户打开）
+    writeGuardState(guardState); // Codex 没开：无事可做（等用户打开）
+    return;
+  }
+
+  // Codex 在跑但无 CDP（绕过快捷方式的裸启动 / CC Switch 直接拉起 /
+  // 升级后首启）。v3.14 提速：单周期接管 + 三闸门防冲突。
+  if (launchFlagAgeMs() < 150 * 1000) {
+    log('Codex without CDP but shortcut launch in flight — standing by');
+    writeGuardState(guardState);
+    return;
+  }
+  const sinceLastStart = Date.now() - (guardState.lastStartAt || 0);
+  if (sinceLastStart < 90 * 1000) {
+    log(`Codex without CDP but start cooldown ${Math.round(sinceLastStart / 1000)}s — standing by`);
+    writeGuardState(guardState);
+    return;
+  }
+  // 进程稳定性复检：全部 pid 8 秒后仍在才算稳定会话。
+  // 正在退出的 Codex（用户主动关闭）renderer 子进程会先消失 → 不接管，
+  // 杜绝"刚关掉又被拉起来"的僵尸复活。
+  const allAliveNow = procs.codexPids.every((pid) => pidAlive(pid));
+  if (!allAliveNow) {
+    log('Codex processes churning (closing?) — standing by');
+    writeGuardState(guardState);
+    return;
+  }
+  await new Promise((r) => setTimeout(r, 8000));
+  const allAliveAfter = procs.codexPids.every((pid) => pidAlive(pid));
+  if (!allAliveAfter) {
+    log('Codex exited during stability check — standing by (user closed it)');
     writeGuardState(guardState);
     return;
   }
 
-  // Codex 在跑但无 CDP（CC Switch 重启 / 用户手动开 / 升级后首启）
-  guardState.noCdpCount += 1;
-  // 冷却：连续 2 个周期（约 2 分钟）才动手——避开 CC Switch 切换中间态
-  // 与 Codex 启动窗口；且距上次 start 至少 3 分钟（防验证失败循环）
-  const sinceLastStart = Date.now() - (guardState.lastStartAt || 0);
-  if (guardState.noCdpCount >= 2 && sinceLastStart > 3 * 60 * 1000) {
-    log('Codex running without CDP — invoking start-dream-skin (restarts Codex with CDP)');
-    guardState.noCdpCount = 0;
-    guardState.lastStartAt = Date.now();
-    callStartScript(state.port);
-  } else {
-    log(`Codex running without CDP (count=${guardState.noCdpCount}, cooldown ${Math.round(sinceLastStart / 1000)}s)`);
-  }
+  log('Codex running without CDP (stable) — invoking start-dream-skin');
+  guardState.lastStartAt = Date.now();
+  callStartScript(state.port);
   writeGuardState(guardState);
 }
 

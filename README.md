@@ -1,10 +1,10 @@
-# 有栖 · Arisu
+﻿# 有栖 · Arisu
 
 OpenAI Codex 桌面版自定义皮肤：紫金配色的全窗玻璃拟态（glassmorphism）视觉系统，带页内主题切换按钮与自愈守护。
 
 前身 Amethyst Gaze（紫晶凝视），v3.12 起更名「有栖」。基于 CodexDreamSkin 引擎的 Track 2 高阶视觉方案，适配 Codex 26.814。
 
-> **快速上手**：安装步骤、前置条件（CodexDreamSkin 引擎）、故障排查见 [INSTALL.md](INSTALL.md)。一键安装：`powershell -ExecutionPolicy RemoteSigned -File install.ps1`。
+> **快速上手**：安装步骤、前置条件（CodexDreamSkin 引擎）、故障排查见 [INSTALL.md](INSTALL.md)。一键安装：`powershell -ExecutionPolicy RemoteSigned -File install.ps1`；日常启动用开始菜单「Codex 有栖」快捷方式——首帧即皮肤，零常驻后台。
 
 ## 特性
 

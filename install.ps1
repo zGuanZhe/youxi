@@ -14,22 +14,28 @@ if (-not (Test-Path (Join-Path $engineDir 'scripts\injector.mjs'))) {
   throw '未找到 CodexDreamSkin 引擎（%LOCALAPPDATA%\CodexDreamSkin\engine）。请先安装引擎，本仓库是皮肤预设 + 工具链，不是独立应用。'
 }
 if (-not (Test-Path $nodeExe)) { throw "引擎 node 运行时缺失：$nodeExe" }
-Write-Host '[1/4] 引擎检查通过' -ForegroundColor Green
+Write-Host '[1/5] 引擎检查通过' -ForegroundColor Green
 
 # 2. 部署皮肤（CSS 三件套 + 切换按钮）
 & $nodeExe $deployCjs
 if ($LASTEXITCODE -ne 0) { throw 'deploy.cjs 失败，见上方输出' }
-Write-Host '[2/4] 皮肤文件已部署' -ForegroundColor Green
+Write-Host '[2/5] 皮肤文件已部署' -ForegroundColor Green
 
-# 3. 注册自愈守护计划任务（幂等）
+# 3. 创建「Codex 有栖」启动快捷方式（零常驻的秒开皮肤主路径）
+& powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File (Join-Path $PSScriptRoot 'tools\install-shortcut.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'install-shortcut.ps1 失败' }
+Write-Host '[3/5] 「Codex 有栖」快捷方式已就绪（开始菜单搜索"codex 有栖"或固定到任务栏）' -ForegroundColor Green
+
+# 4. 注册自愈守护计划任务（幂等，兜底路径）
 & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File (Join-Path $PSScriptRoot 'tools\install-guard.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'install-guard.ps1 失败' }
-Write-Host '[3/4] 自愈守护已注册（每分钟静默自检，Codex 关闭时零动作）' -ForegroundColor Green
+Write-Host '[4/5] 自愈守护已注册（每分钟静默自检，Codex 关闭时零动作）' -ForegroundColor Green
 
-# 4. 重启 Codex 带 CDP 并应用皮肤（引擎脚本：未运行则启动，运行中则重启）
-Write-Host '[4/4] 正在以 CDP 模式启动 Codex（约 1 分钟）...' -ForegroundColor Yellow
+# 5. 重启 Codex 带 CDP 并应用皮肤（引擎脚本：未运行则启动，运行中则重启）
+Write-Host '[5/5] 正在以 CDP 模式启动 Codex（约 1 分钟）...' -ForegroundColor Yellow
 & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $startPs1 -Port 9335 -RestartExisting
 
 Write-Host ''
-Write-Host '安装完成。左上角菜单条的紫晶圆点 = 皮肤切换按钮（开=紫点，关=空心环）。' -ForegroundColor Magenta
+Write-Host '安装完成。日常启动请使用「Codex 有栖」快捷方式——冷启动首帧即带皮肤。' -ForegroundColor Magenta
+Write-Host '左上角菜单条的紫晶圆点 = 皮肤切换按钮（开=紫点，关=空心环）。' -ForegroundColor Magenta
 Write-Host '建议：把 %LOCALAPPDATA%\CodexDreamSkin 加入杀软白名单，避免启动组件被误删（详见 INSTALL.md 故障排查）。' -ForegroundColor Yellow

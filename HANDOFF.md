@@ -1,8 +1,27 @@
-# 有栖 · Codex 皮肤交接文档
+﻿# 有栖 · Codex 皮肤交接文档
 
 下一个人接手必读。这份文档把项目背景、已完成工作、设计决策、待定项一次性讲清楚。
 
-## ★ 最新状态（2026-08-20 深夜，v3.13 · CC Switch 失效根治 + 开源化收尾）
+## ★ 最新状态（2026-08-20 深夜，v3.14 · 「Codex 有栖」快捷方式：秒开皮肤 + AV 免疫）
+
+**需求演进**：用户要求"退出重进/CC Switch 后皮肤立马应用"→ 常驻哨兵方案被否（"不想在后台加这种东西"）→ 最终方案 = **启动入口改造**：让 Codex 从一开始就带 CDP 启动，皮肤首帧生效，零常驻。
+
+**三次技术转折**（全部实测）：
+1. **LNK → PowerShell 直链被火绒执行时删除**（HEUR:Trojan/LNK.Agent.b，本晚第二次 AV 事故）：任何「快捷方式 → 隐藏 powershell → 脚本」形态必死。修复：LNK 指向本地编译的 `youxi-launcher.exe`（csc 现场编译，正常软件形态，实测免疫）。
+2. **引擎 start-dream-skin.ps1 链路慢**（12.5s 出 CDP）：大头是 PS 初始化 + dot-source 大文件 + 锁/校验。实测 **ChatGPT.exe 可直接带 `--remote-debugging-port` 启动**（无需引擎 PackageLauncher），CDP 1~4 秒就绪。
+3. **快速路径全部收进 exe**（youxi-launcher.cs，C# ~160 行）：
+   - CDP 在线 → 幂等退出（实测误点不重启，进程集合零变化）
+   - Codex 在跑无 CDP / state.json 缺字段 / codexExe 失效（升级后）→ 引擎脚本兜底（引擎重写 state.json，下次快速路径自动恢复，天然自举）
+   - Codex 没跑 → 快速路径：写 launch-in-progress 标记（guard 让路）→ 直启 codexExe 带 CDP → 轮询 CDP → 拉 injector(--watch) → 回写 state.json（schema v3 兼容）
+   - **实测：点击 → CDP 3.93s（引擎路径 12.5s，提速 3 倍）**，皮肤随页面加载首帧生效
+4. **guard 兜底提速**（ag-guard.mjs）：noCdp 分支从「2 周期 + 3 分钟冷却」改为「单周期 + 三闸门」：launch-in-progress 标记让路（150s）、90s start 冷却、8s 进程稳定性复检（防"用户刚关 Codex 又被拉起"的僵尸复活）。state.json 缺失分支同样让路。
+
+新文件：`tools/youxi-launcher.cs`（源码，install-shortcut.ps1 现场编译）、`tools/launch-codex-youxi.ps1`（引擎兜底包装：日志 + 启动标记）、`tools/install-shortcut.ps1`（编译 exe + 生成图标 + 建 LNK，幂等）。
+图标：紫晶圆点 + 金环（呼应切换按钮开态），运行时生成，不引用 WindowsApps 版本化路径（Codex 升级不失效）。
+日志：`%LOCALAPPDATA%\CodexDreamSkin\fast-launch.log`（exe 决策树）、`skin-launch.log`（引擎兜底）。
+
+**运维要点**：用户日常启动改用「Codex 有栖」快捷方式（建议固定任务栏）；仓库目录再迁移 → 重跑 `tools\install-shortcut.ps1`（LNK 里 exe 是绝对路径）；误点快捷方式安全（幂等）；裸开 Codex → 1~2 分钟守护接管。
+## ★ v3.13（2026-08-20 深夜，CC Switch 失效根治 + 开源化收尾）
 
 **CC Switch 切换后皮肤失效的真正根因**（连环排查两小时，矩阵实验实锤）：guard 的 `callStartScript` 用 `spawn('powershell.exe', { detached: true })` 拉起引擎 start 脚本——本机上这个组合**必然无声死亡**：
 - `detached: true` → Windows `DETACHED_PROCESS` 让控制台程序 powershell 启动即死（node.exe 不依赖控制台所以 injector 活得好好的，掩盖了问题）
