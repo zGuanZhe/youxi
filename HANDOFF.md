@@ -6,7 +6,7 @@
 
 **当前 Codex 26.814 运行 v3.11**，源文件 `preset/amethyst-gaze-v3.css`。收尾三件事：
 
-1. **弹终端修复**：计划任务直接跑 node.exe（控制台程序）每分钟闪黑框——改走 `tools/ag-guard-launcher.vbs`（wscript 无窗口 + Run 隐藏拉起 node），`install-guard.ps1` 已更新并重注册。**坑：ps1 必须带 BOM 的 UTF-8**，否则 PS 5.1 当 ANSI 读中文注释，语法错乱导致 $action 为 null（Cannot validate argument on parameter 'Action'）。
+1. **弹终端修复**：计划任务直接跑 node.exe（控制台程序）每分钟闪黑框——改走 `tools/ag-guard-launcher.vbs`（wscript 无窗口 + Run 隐藏拉起 node），`install-guard.ps1` 已更新并重注册。**两个编码坑方向相反，都已踩过**：ps1 必须带 BOM 的 UTF-8（否则 PS 5.1 当 ANSI 读中文注释，语法错乱 $action 为 null）；vbs 必须纯 ASCII（否则 wscript 按 ANSI 解析 UTF-8 中文注释直接弹"缺少对象"运行时错误——用户实机报过）。
 2. **性能扫尾（v3.11）**：移除铭牌 ag-shimmer 5s 流光——background-position 动画非合成器友好，每帧重绘（常驻卡顿源）。金箔渐变文字静态保留。至此常驻动画清零：ag-drift（v3.10 已移除）、ag-shimmer（本轮）、ag-icon 仅 hover、ag-pulse 仅聚焦。
 3. **目录清理**：删除全部一次性探针/截图/旧架构文件（probe-*/measure-*/shot-*/crop-*/sample-*、amethyst-gaze-advanced.css、theme.css 源、INSTALL.md、.preflight/、pages/、assets/、colors_and_type.css）。现存 17 个文件：preset 5（皮肤源全套）+ tools 6（部署链 + 守护 + 2 回归验证）+ backup 2（恢复保险）+ 文档 4。
 
