@@ -2,7 +2,22 @@
 
 下一个人接手必读。这份文档把项目背景、已完成工作、设计决策、待定项一次性讲清楚。
 
-## ★ 最新状态（2026-08-20 凌晨，v3.12 · 更名「有栖」+ 杀软误报事件）
+## ★ 最新状态（2026-08-20 深夜，v3.13 · CC Switch 失效根治 + 开源化收尾）
+
+**CC Switch 切换后皮肤失效的真正根因**（连环排查两小时，矩阵实验实锤）：guard 的 `callStartScript` 用 `spawn('powershell.exe', { detached: true })` 拉起引擎 start 脚本——本机上这个组合**必然无声死亡**：
+- `detached: true` → Windows `DETACHED_PROCESS` 让控制台程序 powershell 启动即死（node.exe 不依赖控制台所以 injector 活得好好的，掩盖了问题）
+- 非 detached → powershell 随 guard 父进程退出被杀（实验 4：父进程保活 12s 则活、立即退出则死）
+- 表现为：guard.log 有 "invoking start-dream-skin"、但零进程、零日志、零效果——21:36 的接管就是这样消失的
+
+**修复：wscript 中介链**。`ag-start-launcher.vbs`：guard detached 启动 wscript.exe（GUI 应用不依赖控制台，可安然 detached）→ wscript `Run(cmd, 0, False)` 拉起完全解耦的隐藏 powershell。经完整生产链路（计划任务→wscript→node→wscript→powershell）端到端验证通过。**这是本机 Windows 进程模型的硬约束，别再尝试直启 powershell。**
+
+其他：
+- `ag-probe-launcher.vbs` + guard 内置探针：STATE_ROOT 放 `spawn-probe` 空文件即可诊断全链路（详见 INSTALL.md）
+- spawn 的异步 error 事件必须监听（否则失败被静默吞掉）
+- 开源化收尾：`install.ps1` / `uninstall.ps1` 一键安装卸载（引擎存在性检查 + deploy + guard 注册 + start-dream-skin 生效）、`INSTALL.md` 完整指南（前置条件、AV 白名单建议、故障排查）、删除 QA 残留 PNG
+- 设置页美化：用户明确取消（「不用加了，这步去了」）
+
+## ★ v3.12（2026-08-20 凌晨，更名「有栖」+ 杀软误报事件）
 
 **项目更名**：Amethyst Gaze（紫晶凝视）→ **有栖（Arisu）**。展示层全部更名（铭牌 `content: "有栖"`、theme.json name/brandSubtitle/tagline/statusText、ag-toggle 提示语、文档标题、仓库名）；**技术标识保留不动**（theme-id `preset-amethyst-gaze`、CSS 变量前缀 `--ag-`、`__AG_TOGGLE_REGISTRY__` 键——改名纯风险无收益）。deploy.cjs 块头定位双兼容（新「有栖 v3」优先，旧 "Amethyst Gaze v3" 兜底，引擎现存旧块可平滑过渡）。theme.json 现在也随 deploy 部署（此前只部署 CSS，元数据不跟随）。
 

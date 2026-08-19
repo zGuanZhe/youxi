@@ -4,6 +4,8 @@ OpenAI Codex 桌面版自定义皮肤：紫金配色的全窗玻璃拟态（glas
 
 前身 Amethyst Gaze（紫晶凝视），v3.12 起更名「有栖」。基于 CodexDreamSkin 引擎的 Track 2 高阶视觉方案，适配 Codex 26.814。
 
+> **快速上手**：安装步骤、前置条件（CodexDreamSkin 引擎）、故障排查见 [INSTALL.md](INSTALL.md)。一键安装：`powershell -ExecutionPolicy RemoteSigned -File install.ps1`。
+
 ## 特性
 
 - **全窗画布**：整幅背景画布（含顶部菜单条净空带），轻模糊 + 暖夜墨底色
@@ -36,13 +38,18 @@ OpenAI Codex 桌面版自定义皮肤：紫金配色的全窗玻璃拟态（glas
 ## 部署
 
 ```powershell
-# 1. 部署皮肤（需已安装 CodexDreamSkin 引擎）
-node tools/deploy.cjs
+# 一键（推荐）：部署 + 守护 + 以 CDP 模式启动 Codex
+powershell -NoProfile -ExecutionPolicy RemoteSigned -File install.ps1
 
-# 2. 安装自愈守护计划任务（幂等）
-powershell -NoProfile -ExecutionPolicy RemoteSigned -File tools/install-guard.ps1
+# 或分步：
+node tools/deploy.cjs                                # 部署皮肤
+powershell -ExecutionPolicy RemoteSigned -File tools/install-guard.ps1   # 注册守护
+```
 
-# 3. 重启注入器或直接 reload Codex 生效
+## 卸载
+
+```powershell
+powershell -NoProfile -ExecutionPolicy RemoteSigned -File uninstall.ps1
 ```
 
 ## 回归验证

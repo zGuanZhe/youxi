@@ -28,7 +28,6 @@ const GUARD_STATE_PATH = path.join(STATE_ROOT, 'guard-state.json');
 const LOG_PATH = path.join(STATE_ROOT, 'guard.log');
 const INJECTOR_MJS = path.join(STATE_ROOT, 'engine', 'scripts', 'injector.mjs');
 const RENDERER_JS = path.join(STATE_ROOT, 'engine', 'assets', 'renderer-inject.js');
-const START_PS1 = path.join(STATE_ROOT, 'engine', 'scripts', 'start-dream-skin.ps1');
 const NODE_EXE = path.join(STATE_ROOT, 'engine', 'runtime', 'node', 'node.exe');
 // 仓库内 deploy.cjs（本文件同目录），项目挪位置不断链
 const DEPLOY_CJS = path.join(path.dirname(fileURLToPath(import.meta.url)), 'deploy.cjs');
@@ -166,18 +165,40 @@ function pullInjector(state, browserId) {
 
 function callStartScript(port) {
   try {
-    // -RestartExisting：Codex 无 CDP 运行时脚本要求显式授权才会杀进程
-    // 重启（否则 throw 'Codex is open without...' 静默失败——2026-08-19
-    // 用户退出重进后皮肤丢失的根因）。guard 的职责就是无人值守接管，
-    // 天然持有该授权。输出重定向到文件，失败可诊断。
-    const out = fs.openSync(path.join(STATE_ROOT, 'guard-start.log'), 'a');
-    const err = fs.openSync(path.join(STATE_ROOT, 'guard-start-error.log'), 'a');
-    const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'RemoteSigned',
-      '-File', START_PS1, '-Port', String(port), '-RestartExisting'],
-      { detached: true, stdio: ['ignore', out, err], windowsHide: true });
+    // 启动走 wscript 中介链（ag-start-launcher.vbs）：detached 直启
+    // powershell 会因 DETACHED_PROCESS 失去控制台秒死；非 detached 则
+    // 随父进程退出被杀（均经 2026-08-20 矩阵实验实测）。wscript 是 GUI
+    // 应用可安然 detached，其 Run(0, False) 再拉起完全解耦的隐藏
+    // powershell。-RestartExisting：Codex 无 CDP 运行时脚本要求显式
+    // 授权才会杀进程重启，guard 的职责就是无人值守接管，天然持有该
+    // 授权。输出由 VBS 内 *>> 重定向到 guard-start.log，失败可诊断。
+    const launcher = path.join(path.dirname(fileURLToPath(import.meta.url)), 'ag-start-launcher.vbs');
+    if (!fs.existsSync(launcher)) { log('FATAL: ag-start-launcher.vbs missing at ' + launcher); return false; }
+    const child = spawn('wscript.exe', [launcher, String(port)],
+      { detached: true, windowsHide: true, stdio: 'ignore' });
+    child.on('error', (e) => log('start launcher spawn ERROR (async): ' + e.message));
     child.unref();
     return true;
-  } catch (e) { log('start script spawn failed: ' + e.message); return false; }
+  } catch (e) { log('start launcher failed: ' + e.message); return false; }
+}
+
+// spawn 链路探针：STATE_ROOT 下放一个 spawn-probe 文件（内容随意），
+// 下次 guard 运行时经 wscript 中介链做一次隐藏 powershell 实验并写
+// spawn-probe-out.log，然后删除探针文件恢复正常流程。用于验证
+// 「计划任务→wscript→node→wscript→powershell」链路存活性。
+function runSpawnProbe() {
+  const probeFlag = path.join(STATE_ROOT, 'spawn-probe');
+  if (!fs.existsSync(probeFlag)) return false;
+  try { fs.unlinkSync(probeFlag); } catch {}
+  log('spawn probe: launching via wscript chain');
+  try {
+    const launcher = path.join(path.dirname(fileURLToPath(import.meta.url)), 'ag-probe-launcher.vbs');
+    const child = spawn('wscript.exe', [launcher],
+      { detached: true, windowsHide: true, stdio: 'ignore' });
+    child.on('error', (e) => log('spawn probe ERROR (async): ' + e.message));
+    child.unref();
+  } catch (e) { log('spawn probe throw: ' + e.message); }
+  return true;
 }
 
 // ---------- 4. 主流程 ----------
@@ -188,6 +209,9 @@ function callStartScript(port) {
 //     是一次性进程，跑完即走——系统中不留任何常驻皮肤组件
 
 async function main() {
+  // spawn 链路探针（诊断模式，探针文件存在时仅做实验）
+  if (runSpawnProbe()) return;
+
   // 引擎补丁自愈（文件级，无条件先做；纯字符串检查，~1ms）
   healInjectorPatch();
   healToggleBlock();
