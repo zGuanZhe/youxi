@@ -24,9 +24,29 @@ if (-not (Test-Path $csc)) { throw 'csc.exe not found (.NET Framework 4.x requir
 & $csc /nologo /target:winexe /optimize+ /r:System.Web.Extensions.dll /out:"$exePath" "$csPath" | Out-Null
 if (-not (Test-Path $exePath)) { throw 'compile failed: youxi-launcher.exe not produced' }
 
-# 2. 品牌图标：64x64 紫晶圆点 + 金环
+# 2. 图标：优先复用 Codex 原版图标（用户指定）；包内文件带 EFS
+#    加密属性，Copy-Item 会报"无法加密"，改用流式字节复制。
+$icoPath = Join-Path $root 'codex.ico'
+$codexIco = $null
+$stateFile = Join-Path $root 'state.json'
+if (Test-Path $stateFile) {
+  try {
+    $codexExe = (Get-Content $stateFile -Raw | ConvertFrom-Json).codexExe
+    if ($codexExe -and (Test-Path $codexExe)) {
+      $candidate = Join-Path (Split-Path (Split-Path $codexExe)) 'app\resources\icon-chatgpt.ico'
+      if (Test-Path $candidate) {
+        [System.IO.File]::WriteAllBytes($icoPath, [System.IO.File]::ReadAllBytes($candidate))
+        $codexIco = $icoPath
+      }
+    }
+  } catch { }
+}
+if (-not $codexIco) {
+  # 兜底品牌图标：64x64 紫晶圆点 + 金环
+  $icoPath = Join-Path $root 'youxi.ico'
+}
 Add-Type -AssemblyName System.Drawing
-$icoPath = Join-Path $root 'youxi.ico'
+if (-not $codexIco) {
 $bmp = New-Object System.Drawing.Bitmap 64, 64
 $g = [System.Drawing.Graphics]::FromImage($bmp)
 $g.SmoothingMode = 'AntiAlias'
@@ -44,13 +64,19 @@ $icon.Dispose()
 $bmp.Dispose()
 
 # 3. 快捷方式 → exe（正常软件形态，LNK 里不出现 PowerShell 参数）
+#    开始菜单 + 桌面各一份；桌面用 GetFolderPath 以兼容 OneDrive 重定向。
 $sh = New-Object -ComObject WScript.Shell
-$lnk = $sh.CreateShortcut($lnkPath)
-$lnk.TargetPath = $exePath
-$lnk.WorkingDirectory = $PSScriptRoot
-$lnk.IconLocation = "$icoPath, 0"
-$lnk.Description = 'Codex 有栖：带皮肤启动（首帧即紫金玻璃）'
-$lnk.Save()
-
-Write-Host "shortcut created: $lnkPath"
+$targets = @(
+  $lnkPath,
+  (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Codex 有栖.lnk')
+)
+foreach ($p in $targets) {
+  $lnk = $sh.CreateShortcut($p)
+  $lnk.TargetPath = $exePath
+  $lnk.WorkingDirectory = $PSScriptRoot
+  $lnk.IconLocation = "$icoPath, 0"
+  $lnk.Description = 'Codex 有栖：带皮肤启动'
+  $lnk.Save()
+  Write-Host "shortcut created: $p"
+}
 Write-Host '建议固定到任务栏：以后一键启动，皮肤从第一帧就在。'
