@@ -1,0 +1,69 @@
+[data-ds-part="root"] {
+  color: var(--ds-theme-color-text);
+  transition-duration: 220ms;
+  transition-property: color, background-color, border-color;
+}
+
+[data-ds-part="sidebar"] {
+  border-right-color: var(--ds-theme-color-line);
+  border-right-style: solid;
+  border-right-width: 1px;
+  color: var(--ds-theme-color-text);
+}
+
+[data-ds-part="main"] {
+  color: var(--ds-theme-color-text);
+}
+
+[data-ds-part="header"] {
+  border-bottom-color: var(--ds-theme-color-line);
+  border-bottom-style: solid;
+  border-bottom-width: 1px;
+  color: var(--ds-theme-color-text);
+}
+
+[data-ds-part="home"] {
+  color: var(--ds-theme-color-text);
+}
+
+[data-ds-part="home-hero"] {
+  border-color: var(--ds-theme-color-line);
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 22px;
+  color: var(--ds-theme-color-text);
+}
+
+[data-ds-part="project-list"] {
+  border-color: var(--ds-theme-color-line);
+  border-style: solid;
+  border-width: 1px;
+  border-radius: 14px;
+  color: var(--ds-theme-color-text);
+  row-gap: 6px;
+}
+
+[data-ds-part="thread"] {
+  color: var(--ds-theme-color-text);
+}
+
+[data-ds-part="message"] {
+  border-radius: 16px;
+  color: var(--ds-theme-color-text);
+  line-height: 1.58;
+}
+
+[data-ds-part="composer"] {
+  border-radius: 22px;
+  color: var(--ds-theme-color-text);
+}
+
+[data-ds-part="composer-toolbar"] {
+  color: var(--ds-theme-color-muted);
+  column-gap: 8px;
+}
+
+[data-ds-part="dialog"] {
+  border-radius: 18px;
+  color: var(--ds-theme-color-text);
+}

@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "preset-amethyst-gaze",
+  "name": "Amethyst Gaze",
+  "brandSubtitle": "CODEX · AMETHYST GAZE",
+  "tagline": "紫晶凝视的暖夜",
+  "projectPrefix": "PROJECT · ",
+  "projectLabel": "◌  SELECT PROJECT",
+  "statusText": "AMETHYST GAZE / READY",
+  "quote": "MAKE SOMETHING UNFORGETTABLE",
+  "image": "background.jpg",
+  "appearance": "auto",
+  "art": {
+    "focusX": 0.42,
+    "focusY": 0.48,
+    "safeArea": "left",
+    "taskMode": "ambient"
+  },
+  "colors": {
+    "background": "#1a120e",
+    "panel": "#2c2018",
+    "panelAlt": "#3a2a21",
+    "accent": "#ba96e0",
+    "accentAlt": "#da7a76",
+    "secondary": "#6b9aa4",
+    "highlight": "#d8b47a",
+    "text": "#f6efe7",
+    "muted": "#cdb9ae",
+    "line": "rgba(216, 180, 122, .24)"
+  },
+  "colorModes": {
+    "dark": {
+      "background": "#1a120e",
+      "panel": "#2c2018",
+      "panelAlt": "#3a2a21",
+      "accent": "#ba96e0",
+      "accentAlt": "#da7a76",
+      "secondary": "#6b9aa4",
+      "highlight": "#d8b47a",
+      "text": "#f6efe7",
+      "muted": "#cdb9ae",
+      "line": "rgba(216, 180, 122, .24)"
+    },
+    "light": {
+      "background": "#f2ece7",
+      "panel": "#f7f1ec",
+      "panelAlt": "#ece2da",
+      "accent": "#7a4fa8",
+      "accentAlt": "#b5444f",
+      "secondary": "#3d7078",
+      "highlight": "#8a6d35",
+      "text": "#2e2028",
+      "muted": "#6e5c66",
+      "line": "rgba(122, 79, 168, .22)"
+    }
+  }
+}

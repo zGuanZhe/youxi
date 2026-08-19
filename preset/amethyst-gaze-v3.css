@@ -1,0 +1,1555 @@
+/* ============================================================
+ * Amethyst Gaze v3.10 — “紫晶凝视 · 雾中房” · CodexDreamSkin Track 2
+ * ============================================================
+ * v3.10 vs v3.9（用户第 9 轮反馈：输入栏覆盖不全/金色偏少/
+ *   卡顿/三重持久化）
+ *   1) 【输入栏整栏覆盖】玻璃从 ComposerLayoutFooter（h=85）
+ *      上移到 ComposerLayoutRoot（h=109 整栏）——v3.9 顶部
+ *      16px 工具区裸奔即“上下变窄”的真身。聚焦光环/亮色/
+ *      reduced-motion 三处引用同步挂 Root。
+ *   2) 【紫金全屋化】GOLD ACCENT 段：thread 标题金箔+紫金底线、
+ *      strong 金/em 亮紫相间、助手消息左缘紫金身份线、
+ *      activity 小标题金箔、全屋 hover 金光（侧栏同款）。
+ *   3) 【性能】移除 ag-drift 44s 背景漂移：0.4% 幅度肉眼
+ *      不可见，却让三层 backdrop-filter(18px) 每帧对全屏
+ *      动态背景重采样——卡顿主因。背景静态化后稳态零成本。
+ *
+ * v3.9 vs v3.8（用户第 8 轮反馈：右侧原配色/输入框一圈透明——
+ *   隐藏实验+像素采样闭环定位）
+ *   1) 【真凶·右面板灰条】sticky header 的 ::before 原生灰蓝
+ *      实心带（before:bg-surface-elevated-secondary）悬在标题
+ *      顶缘上方。透明化。
+ *   2) 【右面板透灰】玻璃加厚到 .68/.58，背景键盘亮区不再透出。
+ *   3) 【真凶·输入框灰L/一圈透明】聚焦光环 ::after 的 opacity:0
+ *      未生效，2.42px 紫环常亮绕框。opacity 加 !important。
+ *   4) 【侧栏竖线】border-right 改发丝级暗描边。
+ *   5) 【右缘紫长条】main 全子树统一细紫滚动条。
+ *   6) 【清屎山】删除被取代的刻度轨透明度旧规则、旧滚动条
+ *      覆盖、无 !important 的聚焦光环规则；tools 探针/截图全清。
+ *
+ * v3.8 vs v3.7（右下两块颜色/输入框变怪）
+ *   1) 刻度轨整轨隐藏；2) thread-scroll-footer 淡出层右缘
+ *   横向遮罩；3) 面板 sticky 标题透明化；4) composer 收敛
+ *   到统一玻璃配方。
+ *
+ * THESIS  她的紫瞳是这间屋子唯一的光源。背景是她的房间：
+ *         轻微失焦（她在玻璃后面呼吸），UI 是同一间屋子里
+ *         的一整套器皿——所有面板用同一张玻璃配方浇出来，
+ *         不再混搭。对话像在房间里直接说话：没有大板，
+ *         助手的话落在雾上，用户的话是一只小玻璃杯。
+ *
+ * v3.7 vs v3.6（用户第 6 轮反馈：底部/右侧"太怪"——自主截图闭环修复）
+ *   1) 【真凶】thread-scroll-footer 首子 = 原生 from-surface
+ *      灰蓝实心渐变淡出层（rgb(46,52,64)，h-full 覆盖输入区
+ *      整行）：左半被 composer 玻璃遮住，露出的右半就是
+ *      底部右侧"怪异暗带"。改紫墨淡出，融入底沉。
+ *   2) 【真凶】_ComposerLayoutRoot_ 横向 3px 溢出（scrollW
+ *      739 > clientW 736）触发原生横向滚动条（底部紫长条）。
+ *      overflow-x: clip 裁掉。
+ *
+ * v3.6 vs v3.5（背景几何微调）
+ *   1) art-position 40%→34%（地板上移，减少底部暗区）。
+ *   2) 底沉渐变 .34→.18。
+ *
+ * v3.5 vs v3.4（用户第 5 轮反馈：选中特效取消 + 右面板补覆盖 + 对话区清杂）
+ *   1) 【取消】侧栏选中流光指示条（ag-flow 紫→红流光，
+ *      用户看到的“朱红色选中边框”即它）与斜纹/内描边全部
+ *      移除，选中态=平静半透明紫晕。
+ *   2) 【修复】右侧输出面板 sticky 分组标题（“输出内容”/
+ *      “来源”）原生 rgb(61,67,79) 实心灰蓝——v3.4 选择器
+ *      误写 div[...] 漏掉 header 元素；改玻璃淡染+自模糊。
+ *      分区 after:bg-border 灰线同染玻璃描边色。
+ *   3) 【清杂】theme.css 每条消息的 0.6px 紫描边（对话区
+ *      四周“杂乱”主源）与 composer/toolbar 描边移除。
+ *   4) 【降噪】对话区左侧“跳转到用户消息”刻度轨降透明度。
+ *
+ * v3.4 vs v3.3（用户第 4 轮反馈：补覆盖 + 去无用样式）
+ *   1) 【修复】_ComposerLayoutRoot_ 原生 oklab(0.38/0.86) 86.5%
+ *      实心底 + blur(16px)——输入框“过宽玻璃托盘”的真身。
+ *      透明化，玻璃只留 footer 一层。
+ *   2) 【修复】_MainContentTopFade_ 原生深灰渐变条（对话区
+ *      顶部无用样式）：改紫墨渐变，融入轻纱罩。
+ *   3) 【修复】滚动条：Codex 原生 scrollbar-color 会禁用
+ *      ::-webkit-scrollbar 伪元素——补标准属性覆盖。
+ *
+ * v3.3 vs v3.2（视觉 QA 第 1 轮修复）
+ *   1) 画布从壳层(40px 起)上移到全窗容器，顶部菜单条
+ *      不再露 body 实心底色。
+ *   2) 人物双眼重新定位，落在 header 与标题胶囊净空带。
+ *   3) 顶栏玻璃 alpha .52/.40 → .38/.28。
+ *   4) 三色强调线拉长至胶囊 58%。
+ *
+ * v3.2 vs v3.1（用户第 3 轮反馈，方向修正）
+ *   1) 对话区大毛玻璃板删除：阅读轨全透明，助手消息裸排，
+ *      用户消息=紧凑玻璃泡。
+ *   2) 背景轻模糊：整画布 blur(4px)+saturate(1.06)。
+ *   3) 毛玻璃全屋统一：--ag-glass-* token 一套配方。
+ *   4) composer 规则全局门控（去 home 门控）。
+ *   5) theme.css 裁剪去实心残留。
+ *
+ * SIGNATURES  6 个签名动效（保留）
+ *   ag-drift  壳层背景 44s 极慢漂移（GPU transform）
+ *   ag-rise   首页卡片错峰入场（0.55s × 4 delay）
+ *   ag-sweep  卡片 hover 光带斜掠（0.7s）
+ *   ag-pulse  输入框聚焦紫晶光环呼吸（2.6s）
+ *   ag-icon   卡片图标 hover 微呼吸（3.2s）
+ *   ag-shimmer 身份铭牌金光泽扫过（5s）
+ * ============================================================ */
+/* ------------------------------------------------------------
+ * 0. KEYFRAMES（不可门控；动画仅在门控规则中引用）
+ * ------------------------------------------------------------ */
+
+@keyframes ag-drift {
+  0%, 100% { transform: scale(1.004) translate(0%, 0%); }
+  50%      { transform: scale(1.009) translate(.22%, -.16%); }
+}
+
+@keyframes ag-rise {
+  0%   { opacity: 0; transform: translateY(16px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ag-sweep {
+  0%   { transform: translateX(-130%) skewX(-8deg); }
+  100% { transform: translateX(230%) skewX(-8deg); }
+}
+
+@keyframes ag-pulse {
+  0%, 100% { opacity: .38; }
+  50%      { opacity: 1; }
+}
+
+@keyframes ag-icon {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.07); }
+}
+
+html[data-dream-skin="active"][data-dream-theme-id="preset-amethyst-gaze"] {
+--ag-ink-rgb: 16 11 24;            /* 暖夜墨 #100b18 */
+  --ag-panel-rgb: 24 17 34;          /* 旧侧栏底（theme.json 用） */
+  --ag-glass-rgb: 38 28 50;          /* 暖紫玻璃（背景取色）#261c32 */
+  --ag-glass-strong-rgb: 46 33 58;   /* 强玻璃/popover #2e213a */
+  --ag-rail-rgb: 138 90 176;         /* 主强调·她的眼紫 #8a5ab0 */
+  --ag-rail-bright-rgb: 201 168 224; /* 眼紫亮调 #c9a8e0（图标/链接） */
+  --ag-rose-rgb: 216 80 96;          /* 次强调·制服朱红 #d85060 */
+  --ag-rose-bright-rgb: 240 168 176; /* 朱红亮调 #f0a8b0 */
+  --ag-gold-rgb: 232 200 120;        /* 微光金·丝带 #e8c878 */
+  --ag-hair-rgb: 238 222 248;        /* 发高光·玻璃高光 #eedef8 */
+  --ag-text-rgb: 238 230 244;        /* 正文 #eee6f4 */
+  --ag-muted-rgb: 172 158 196;       /* 弱文本 #ac9ec4 */
+  --ag-reading-rgb: 20 14 30;        /* 会话阅读面 */
+  --ag-focus-ring: 138 90 176;
+
+  /* —— 统一玻璃配方（v3.2 核心）—— */
+  --ag-glass-blur: blur(18px) saturate(1.3);
+  --ag-glass-hi-rgb: 238 222 248;    /* 玻璃高光/描边 */
+  --ag-glass-border: rgb(238 222 248 / .09);
+  --ag-glass-shadow: 0 14px 36px rgb(8 5 14 / .34);
+  --ag-glass-inset: inset 0 1px rgb(238 222 248 / .05);
+
+  /* 背景几何：v3.6 焦点上移至 34%，减少地板暗区在视口
+     下半部的占比；cover 全铺不留黑边。 */
+  --ag-art-size: cover;
+  --ag-art-position: 50% 34%;
+  /* 背景轻模糊（v3.2：她在玻璃后面呼吸） */
+  --ag-art-blur: blur(4px) saturate(1.06);
+
+  accent-color: rgb(var(--ag-rail-rgb)) !important;
+
+  /* ------------------------------------------------------------
+ * 1. TOKENS — 暗（默认）+ 亮
+ *    v3.2：新增统一玻璃 token（全屋一个配方）。
+ *    玻璃底色从背景取暖紫，与动漫粉紫/暖肤色同族。
+ * ------------------------------------------------------------ */
+
+  &[data-dream-shell="light"] {
+  --ag-ink-rgb: 42 30 52;
+  --ag-panel-rgb: 250 245 240;
+  --ag-glass-rgb: 247 241 236;
+  --ag-glass-strong-rgb: 252 248 244;
+  --ag-rail-rgb: 109 68 148;
+  --ag-rail-bright-rgb: 122 79 168;
+  --ag-rose-rgb: 181 68 79;
+  --ag-rose-bright-rgb: 214 120 128;
+  --ag-gold-rgb: 138 109 53;
+  --ag-hair-rgb: 255 251 246;
+  --ag-text-rgb: 42 32 48;
+  --ag-muted-rgb: 110 98 120;
+  --ag-reading-rgb: 252 248 244;
+  --ag-focus-ring: 109 68 148;
+  --ag-glass-border: rgb(109 68 148 / .12);
+  --ag-glass-shadow: 0 14px 36px rgb(42 30 52 / .18);
+  --ag-glass-inset: inset 0 1px rgb(255 255 255 / .92);
+  --ag-art-blur: blur(3px) saturate(1.04);
+  }
+
+  /* ------------------------------------------------------------
+ * 2. IMMERSIVE SHELL — 全窗一次曝光 + 轻模糊
+ *    v3.3：画布上移到全窗容器（含菜单条），顶部不再露实心底。
+ * ------------------------------------------------------------ */
+
+  & div:has(> div[class*="_ApplicationMenuTopBar_"])::before {
+  content: "";
+  position: absolute;
+  inset: -14px;                       /* 外扩，藏住 blur 边缘 */
+  z-index: 0;
+  pointer-events: none;
+  filter: var(--ag-art-blur);
+  background-image:
+    /* 1. 落灯：她的脸上一片柔光（径向，位置=双眼 47% 26%） */
+    radial-gradient(ellipse 40% 32% at 47% 26%,
+      rgb(var(--ag-hair-rgb) / .10),
+      transparent 70%),
+    /* 2. 夜紫调和：极轻 */
+    linear-gradient(115deg,
+      rgb(var(--ag-rail-rgb) / .04),
+      transparent 42%,
+      rgb(var(--ag-ink-rgb) / .12) 100%),
+    /* 3. 顶带：只给顶栏一层薄墨 */
+    linear-gradient(180deg,
+      rgb(var(--ag-ink-rgb) / .20) 0%,
+      rgb(var(--ag-ink-rgb) / .07) 10%,
+      transparent 20%),
+    /* 4. 底沉：v3.6 减弱，避免地板暗区+渐变叠加成死黑 */
+    linear-gradient(180deg,
+      transparent 70%,
+      rgb(var(--ag-ink-rgb) / .06) 88%,
+      rgb(var(--ag-ink-rgb) / .18) 100%),
+    /* 5. 左带：侧栏下的薄墨衬 */
+    linear-gradient(90deg,
+      rgb(var(--ag-ink-rgb) / .18) 0%,
+      rgb(var(--ag-ink-rgb) / .07) 15%,
+      transparent 26%),
+    /* 6. 右缘轻墨 */
+    linear-gradient(270deg,
+      rgb(var(--ag-ink-rgb) / .12) 0%,
+      transparent 10%),
+    /* 7. 她的房间 */
+    var(--dream-skin-art) !important;
+  background-position: center, 0 0, 0 0, 0 0, 0 0, 0 0, var(--ag-art-position) !important;
+  background-repeat: no-repeat !important;
+  background-size:
+    100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%,
+    var(--ag-art-size) !important;
+  /* v3.10【性能】ag-drift 44s 漂移已移除：0.4% 幅度肉眼不可见，
+     却让背景层永远处于动画态——侧栏/顶栏/右面板的 backdrop-filter
+     (blur 18px) 被迫对全屏动态背景每帧重采样（卡顿主因）。
+     背景静态化后 backdrop-filter 仅在内容变化时重算，稳态零成本。 */
+  }
+
+  /* 亮色：晨光纱。 */
+
+  &[data-dream-shell="light"] div:has(> div[class*="_ApplicationMenuTopBar_"])::before {
+  background-image:
+    radial-gradient(ellipse 40% 32% at 47% 26%,
+      rgb(255 252 246 / .18),
+      transparent 70%),
+    linear-gradient(115deg,
+      rgb(255 250 244 / .08),
+      transparent 42%,
+      rgb(var(--ag-ink-rgb) / .08) 100%),
+    linear-gradient(180deg,
+      rgb(255 252 246 / .22) 0%,
+      rgb(255 252 246 / .08) 10%,
+      transparent 20%),
+    linear-gradient(180deg,
+      transparent 62%,
+      rgb(var(--ag-ink-rgb) / .12) 82%,
+      rgb(var(--ag-ink-rgb) / .28) 100%),
+    linear-gradient(90deg,
+      rgb(255 250 244 / .30) 0%,
+      rgb(255 250 244 / .12) 15%,
+      transparent 26%),
+    linear-gradient(270deg,
+      rgb(255 250 244 / .14) 0%,
+      transparent 10%),
+    var(--dream-skin-art) !important;
+  }
+
+  /* v3.3：菜单条提升到画布之上（画布现在覆盖全窗含菜单条），
+   文字加投影保证任何背景下的可读性。 */
+
+  & div[class*="_ApplicationMenuTopBar_"] {
+  position: relative !important;
+  z-index: 1;
+  }
+
+  & div[class*="_ApplicationMenuTopBar_"] button {
+  text-shadow: 0 1px 8px rgb(8 5 14 / .55) !important;
+  }
+
+  &[data-dream-shell="light"] div[class*="_ApplicationMenuTopBar_"] button {
+  text-shadow: 0 1px 8px rgb(255 252 246 / .80) !important;
+  }
+
+  /* 主表面一律透明（不与壳层二次曝光）。 */
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]) {
+  background-color: transparent !important;
+  background-image: none !important;
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) {
+  position: relative !important;
+  isolation: isolate;
+  background: transparent !important;
+  }
+
+  /* 底部引言水印：去除（噪声）。 */
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"])::after {
+  content: none !important;
+  }
+
+  /* ------------------------------------------------------------
+ * 3. SIDEBAR — 统一玻璃 #1（结构面板配方）
+ *    活跃项紫晕+流光指示条（ag-flow）+ 金箔分区标题
+ * ------------------------------------------------------------ */
+
+  & aside.app-shell-left-panel,
+& [data-ds-part="sidebar"] {
+  position: relative !important;
+  background: linear-gradient(172deg,
+    rgb(var(--ag-glass-rgb) / .60),
+    rgb(var(--ag-ink-rgb) / .50)) !important;
+  border: 0 !important;
+  border-right: 1px solid var(--ag-glass-border) !important;
+  border-radius: 0 !important;
+  box-shadow: var(--ag-glass-shadow), var(--ag-glass-inset) !important;
+  backdrop-filter: var(--ag-glass-blur) !important;
+  -webkit-backdrop-filter: var(--ag-glass-blur) !important;
+  }
+
+  /* 基础层的金箔右沿/其它 ::after 装饰：清除。 */
+
+  & aside.app-shell-left-panel::after {
+  content: none !important;
+  }
+
+  /* 活跃导航项：平静的半透明紫晕（v3.5：按用户要求取消
+   * 选中特效——流光指示条/斜纹/内描边全部移除）。 */
+
+  & aside.app-shell-left-panel [aria-current="page"] {
+  border-radius: 10px !important;
+  background: rgb(var(--ag-rail-rgb) / .16) !important;
+  box-shadow: none !important;
+  }
+
+  /* 侧栏悬停：金箔微光（金色锚点之一）。 */
+
+  & aside.app-shell-left-panel .sidebar-item:hover {
+  background: rgb(var(--ag-gold-rgb) / .08) !important;
+  }
+
+  & aside.app-shell-left-panel .sidebar-item:hover svg {
+  color: rgb(var(--ag-gold-rgb) / .92) !important;
+  }
+
+  /* 分区标题（项目/最近）：金箔小字距标签。 */
+
+  & aside.app-shell-left-panel [class*="nav-section-title"],
+& aside.app-shell-left-panel [class*="nav-section-title"] span {
+  color: rgb(var(--ag-gold-rgb) / .74) !important;
+  font-size: 11px !important;
+  font-weight: 620 !important;
+  letter-spacing: .14em !important;
+  opacity: 1 !important;
+  }
+
+  /* 侧栏文字（兼容 26.814 类名）。 */
+
+  & aside.app-shell-left-panel :is([class*="text-fade-truncate"],
+[class*="text-codex-description"],
+[class*="text-token-foreground"],
+[class*="text-tertiary"]) {
+  color: rgb(var(--ag-text-rgb) / .82) !important;
+  opacity: 1 !important;
+  }
+
+  & aside.app-shell-left-panel :is([class*="text-codex-description"],
+[class*="text-token-input-placeholder-foreground"]) {
+  color: rgb(var(--ag-muted-rgb) / .92) !important;
+  }
+
+  /* 图标常态提亮。 */
+
+  & aside.app-shell-left-panel svg {
+  color: rgb(var(--ag-text-rgb) / .74) !important;
+  }
+
+  & aside.app-shell-left-panel [aria-current="page"] :is([class*="text-fade-truncate"],
+svg) {
+  color: rgb(var(--ag-rail-bright-rgb)) !important;
+  }
+
+  & aside.app-shell-left-panel :is(nav,
+footer) span:not(:has(svg)) {
+  color: rgb(var(--ag-text-rgb) / .84) !important;
+  opacity: 1 !important;
+  }
+
+  & aside.app-shell-left-panel [aria-current="page"] span:not(:has(svg)) {
+  color: rgb(var(--ag-rail-bright-rgb)) !important;
+  font-weight: 600 !important;
+  }
+
+  & aside.app-shell-left-panel :is(nav,
+footer) span:has(svg) {
+  color: rgb(var(--ag-text-rgb) / .74) !important;
+  }
+
+  /* 亮色侧栏。 */
+
+  &[data-dream-shell="light"] aside.app-shell-left-panel,
+&[data-dream-shell="light"] [data-ds-part="sidebar"] {
+  background: linear-gradient(172deg,
+    rgb(250 245 240 / .72),
+    rgb(244 236 228 / .66)) !important;
+  border-right-color: rgb(109 68 148 / .14) !important;
+  }
+
+  /* ------------------------------------------------------------
+ * 4. HEADER — 统一玻璃 #2（v3.3 减负：她的头发读得透）
+ * ------------------------------------------------------------ */
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]) > header:is(.app-header-tint,
+[data-app-shell-header-edge-scroll],
+[class*="_Header_"]),
+& [data-ds-part="header"] {
+  position: relative !important;
+  background: linear-gradient(172deg,
+    rgb(var(--ag-glass-rgb) / .38),
+    rgb(var(--ag-ink-rgb) / .28)) !important;
+  border: 0 !important;
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: var(--ag-glass-blur) !important;
+  -webkit-backdrop-filter: var(--ag-glass-blur) !important;
+  }
+
+  /* 发丝底线：紫→金→红渐隐（顶栏的身份标记）。 */
+
+  & header:is(.app-header-tint,
+[data-app-shell-header-edge-scroll],
+[class*="_Header_"])::after,
+& [data-ds-part="header"]::after {
+  content: "" !important;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    rgb(var(--ag-rail-rgb) / .45),
+    rgb(var(--ag-gold-rgb) / .35) 38%,
+    rgb(var(--ag-rose-rgb) / .30) 68%,
+    transparent);
+  }
+
+  /* 基础层顶栏 ::before 装饰：清除。 */
+
+  & header:is(.app-header-tint,
+[data-app-shell-header-edge-scroll],
+[class*="_Header_"])::before,
+& [data-ds-part="header"]::before {
+  content: none !important;
+  }
+
+  /* 顶栏按钮。 */
+
+  & div[class*="_ApplicationMenuTopBar_"] button,
+& header button {
+  color: rgb(var(--ag-text-rgb) / .84) !important;
+  }
+
+  & div[class*="_ApplicationMenuTopBar_"] button:hover,
+& div[class*="_ApplicationMenuTopBar_"] button:focus-visible,
+& header button:hover {
+  color: rgb(var(--ag-text-rgb)) !important;
+  background: rgb(var(--ag-rail-rgb) / .12) !important;
+  }
+
+  /* 亮色顶栏。 */
+
+  &[data-dream-shell="light"] main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]) > header:is(.app-header-tint,
+[data-app-shell-header-edge-scroll],
+[class*="_Header_"]),
+&[data-dream-shell="light"] [data-ds-part="header"] {
+  background: linear-gradient(172deg,
+    rgb(250 246 240 / .58),
+    rgb(250 246 240 / .44)) !important;
+  }
+
+  /* ------------------------------------------------------------
+ * 5. HERO — 玻璃胶囊 + 三色强调线 + 项目徽章 + 金色铭牌
+ *    v3.2：对齐统一玻璃配方。
+ * ------------------------------------------------------------ */
+
+  & [role="main"]:has([data-testid="home-icon"]) .heading-xl {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: flex-end !important;
+  width: min(100%, 640px) !important;
+  min-height: 0 !important;
+  padding: 18px 26px 16px !important;
+  text-align: left !important;
+  color: rgb(var(--ag-text-rgb)) !important;
+  border: 1px solid var(--ag-glass-border) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(168deg,
+    rgb(var(--ag-glass-rgb) / .46),
+    rgb(var(--ag-ink-rgb) / .38) 82%) !important;
+  box-shadow: var(--ag-glass-shadow), var(--ag-glass-inset) !important;
+  backdrop-filter: var(--ag-glass-blur) !important;
+  -webkit-backdrop-filter: var(--ag-glass-blur) !important;
+  overflow: hidden;
+  }
+
+  /* 标题排版：26px / 700 / 紧字距 / 深投影保可读。 */
+
+  & [role="main"]:has([data-testid="home-icon"]) .heading-xl > [class*="group/title"] {
+  max-width: 100% !important;
+  font-size: 26px !important;
+  line-height: 1.18 !important;
+  letter-spacing: -.02em !important;
+  font-weight: 700 !important;
+  color: rgb(var(--ag-text-rgb)) !important;
+  text-shadow: 0 2px 18px rgb(8 5 14 / .72), 0 0 44px rgb(8 5 14 / .48) !important;
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) .heading-xl > [class*="group/title"] > :not(button) {
+  color: rgb(var(--ag-text-rgb)) !important;
+  }
+
+  /* 句中项目徽章：紫玻璃 + 金字 + 金发丝边（三色识别）。 */
+
+  & [role="main"]:has([data-testid="home-icon"]) .heading-xl > [class*="group/title"] button {
+  margin: 0 2px !important;
+  padding: 1px 12px !important;
+  border: 1px solid rgb(var(--ag-gold-rgb) / .38) !important;
+  border-radius: 999px !important;
+  background: linear-gradient(135deg,
+    rgb(var(--ag-rail-rgb) / .30),
+    rgb(var(--ag-rail-rgb) / .12)) !important;
+  color: rgb(var(--ag-gold-rgb)) !important;
+  font-weight: 620 !important;
+  text-decoration: none !important;
+  box-shadow:
+    0 0 12px rgb(var(--ag-rail-rgb) / .25),
+    inset 0 1px rgb(var(--ag-hair-rgb) / .10) !important;
+  transition: border-color .2s ease, box-shadow .2s ease;
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) .heading-xl > [class*="group/title"] button,
+& [role="main"]:has([data-testid="home-icon"]) .heading-xl > [class*="group/title"] button * {
+  color: rgb(var(--ag-gold-rgb)) !important;
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) .heading-xl > [class*="group/title"] button:hover {
+  border-color: rgb(var(--ag-gold-rgb) / .70) !important;
+  box-shadow: 0 0 18px rgb(var(--ag-gold-rgb) / .30) !important;
+  }
+
+  /* 身份铭牌：右下角金色 AMETHYST GAZE（signature ag-shimmer）。 */
+
+  & [role="main"]:has([data-testid="home-icon"]) .heading-xl::before {
+  content: "AMETHYST GAZE · 紫晶凝视";
+  position: absolute;
+  right: 24px;
+  bottom: 6px;
+  font-size: 9px;
+  font-weight: 640;
+  letter-spacing: .18em;
+  color: rgb(var(--ag-gold-rgb) / .85);
+  background: linear-gradient(100deg,
+    rgb(var(--ag-gold-rgb) / .85) 30%,
+    rgb(var(--ag-hair-rgb) / .95) 50%,
+    rgb(var(--ag-gold-rgb) / .85) 70%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  /* v3.11【性能】ag-shimmer 5s 流光已移除：background-position
+     动画非合成器友好，每帧触发重绘（常驻卡顿源）。金箔渐变
+     文字静态保留，视觉签名不丢。 */
+  pointer-events: none;
+  }
+
+  /* 三色强调线：标题下方紫→金→红渐变（v3.3 拉长，金段对齐中心）。 */
+
+  & [role="main"]:has([data-testid="home-icon"]) .heading-xl::after {
+  content: "";
+  position: absolute;
+  left: 26px;
+  bottom: 0;
+  width: min(58%, 380px);
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg,
+    rgb(var(--ag-rail-rgb)),
+    rgb(var(--ag-gold-rgb)) 50%,
+    rgb(var(--ag-rose-rgb)));
+  box-shadow: 0 0 12px rgb(var(--ag-rail-rgb) / .45);
+  pointer-events: none;
+  }
+
+  /* 亮色标题。 */
+
+  &[data-dream-shell="light"] [role="main"]:has([data-testid="home-icon"]) .heading-xl {
+  background: linear-gradient(168deg,
+    rgb(255 253 250 / .42),
+    rgb(255 253 250 / .66) 82%) !important;
+  border-color: rgb(109 68 148 / .12) !important;
+  }
+
+  &[data-dream-shell="light"] [role="main"]:has([data-testid="home-icon"]) .heading-xl > [class*="group/title"] {
+  text-shadow: 0 1px 12px rgb(255 251 246 / .80) !important;
+  }
+
+  /* ------------------------------------------------------------
+ * 5b. PROJECT ROW — 首页项目条（📁 work）：统一玻璃浮条
+ * ------------------------------------------------------------ */
+
+  & [role="main"]:has([data-testid="home-icon"]) [data-ds-part="project-list"] {
+  background: linear-gradient(168deg,
+    rgb(var(--ag-glass-rgb) / .44),
+    rgb(var(--ag-ink-rgb) / .36)) !important;
+  border: 1px solid var(--ag-glass-border) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 10px 28px rgb(8 5 14 / .26), var(--ag-glass-inset) !important;
+  backdrop-filter: var(--ag-glass-blur) !important;
+  -webkit-backdrop-filter: var(--ag-glass-blur) !important;
+  }
+
+  /* ------------------------------------------------------------
+ * 6. SUGGESTION CARDS — 四张卡、四种专属图案与色系
+ *    探索=星轨·眼紫 / 构建=砖纹·朱红 / 审查=扫描线·金 /
+ *    修复=晶面·深紫。统一玻璃骨架 + 专属图案层。
+ * ------------------------------------------------------------ */
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button {
+  position: relative !important;
+  min-height: 132px !important;
+  padding: 16px 16px 14px !important;
+  align-items: stretch !important;
+  justify-content: space-between !important;
+  text-align: left !important;
+  border-radius: 18px !important;
+  border: 1px solid var(--ag-glass-border) !important;
+  background: linear-gradient(168deg,
+    rgb(var(--ag-glass-rgb) / .44),
+    rgb(var(--ag-ink-rgb) / .36) 88%) !important;
+  box-shadow: 0 10px 30px rgb(8 5 14 / .28), var(--ag-glass-inset) !important;
+  backdrop-filter: var(--ag-glass-blur) !important;
+  -webkit-backdrop-filter: var(--ag-glass-blur) !important;
+  color: rgb(var(--ag-text-rgb)) !important;
+  overflow: hidden;
+  opacity: 0;
+  animation: ag-rise .55s cubic-bezier(.22, 1, .36, 1) forwards;
+  transition: transform .24s cubic-bezier(.22, 1, .36, 1),
+    border-color .24s cubic-bezier(.22, 1, .36, 1),
+    box-shadow .24s cubic-bezier(.22, 1, .36, 1),
+    background .24s cubic-bezier(.22, 1, .36, 1);
+  }
+
+  /* 错峰入场：按图标语义色定位。 */
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-blue) { animation-delay: .05s; 
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-purple) { animation-delay: .15s; 
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-green) { animation-delay: .25s; 
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-orange) { animation-delay: .35s; 
+  }
+
+  /* —— 卡 1 · 探索并理解代码：星轨 · 眼紫 —— */
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-blue) {
+  background:
+    radial-gradient(circle at 84% 16%, rgb(var(--ag-gold-rgb) / .20) 0 1.5px, transparent 3px),
+    radial-gradient(circle at 70% 30%, rgb(var(--ag-gold-rgb) / .14) 0 1px, transparent 2.5px),
+    radial-gradient(circle at 91% 38%, rgb(var(--ag-rail-bright-rgb) / .22) 0 1.5px, transparent 3px),
+    radial-gradient(circle at 78% 52%, rgb(var(--ag-hair-rgb) / .12) 0 1px, transparent 2px),
+    linear-gradient(168deg,
+      rgb(var(--ag-rail-rgb) / .14),
+      rgb(var(--ag-glass-rgb) / .42) 45%,
+      rgb(var(--ag-ink-rgb) / .38) 88%) !important;
+  box-shadow:
+    0 10px 30px rgb(8 5 14 / .28),
+    inset 0 2px 0 rgb(var(--ag-rail-rgb) / .50),
+    var(--ag-glass-inset) !important;
+  }
+
+  /* —— 卡 2 · 构建新功能：砖纹 · 朱红 —— */
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-purple) {
+  background:
+    repeating-linear-gradient(135deg,
+      rgb(var(--ag-rose-rgb) / .055) 0 6px,
+      transparent 6px 13px),
+    linear-gradient(168deg,
+      rgb(var(--ag-rose-rgb) / .11),
+      rgb(var(--ag-glass-rgb) / .42) 45%,
+      rgb(var(--ag-ink-rgb) / .38) 88%) !important;
+  box-shadow:
+    0 10px 30px rgb(8 5 14 / .28),
+    inset 0 2px 0 rgb(var(--ag-rose-rgb) / .50),
+    var(--ag-glass-inset) !important;
+  }
+
+  /* —— 卡 3 · 审查代码：扫描线 · 金 —— */
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-green) {
+  background:
+    repeating-linear-gradient(0deg,
+      rgb(var(--ag-gold-rgb) / .05) 0 1px,
+      transparent 1px 7px),
+    linear-gradient(168deg,
+      rgb(var(--ag-gold-rgb) / .09),
+      rgb(var(--ag-glass-rgb) / .42) 45%,
+      rgb(var(--ag-ink-rgb) / .38) 88%) !important;
+  box-shadow:
+    0 10px 30px rgb(8 5 14 / .28),
+    inset 0 2px 0 rgb(var(--ag-gold-rgb) / .45),
+    var(--ag-glass-inset) !important;
+  }
+
+  /* —— 卡 4 · 修复问题：晶面 · 深紫 —— */
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-orange) {
+  background:
+    conic-gradient(from 210deg at 86% 14%,
+      rgb(var(--ag-rail-bright-rgb) / .12),
+      transparent 28%),
+    linear-gradient(168deg,
+      rgb(var(--ag-glass-strong-rgb) / .46),
+      rgb(var(--ag-glass-rgb) / .40) 45%,
+      rgb(var(--ag-ink-rgb) / .42) 88%) !important;
+  box-shadow:
+    0 10px 30px rgb(8 5 14 / .28),
+    inset 0 2px 0 rgb(var(--ag-rail-bright-rgb) / .35),
+    var(--ag-glass-inset) !important;
+  }
+
+  /* hover：抬升 + 各自色系的光晕。 */
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:hover {
+  transform: translateY(-3px) !important;
+  border-color: rgb(var(--ag-hair-rgb) / .14) !important;
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-blue):hover {
+  box-shadow:
+    0 16px 38px rgb(8 5 14 / .34),
+    0 0 0 1px rgb(var(--ag-rail-rgb) / .26),
+    inset 0 2px 0 rgb(var(--ag-rail-rgb) / .60),
+    inset 0 1px rgb(var(--ag-hair-rgb) / .10) !important;
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-purple):hover {
+  box-shadow:
+    0 16px 38px rgb(8 5 14 / .34),
+    0 0 0 1px rgb(var(--ag-rose-rgb) / .26),
+    inset 0 2px 0 rgb(var(--ag-rose-rgb) / .60),
+    inset 0 1px rgb(var(--ag-hair-rgb) / .10) !important;
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-green):hover {
+  box-shadow:
+    0 16px 38px rgb(8 5 14 / .34),
+    0 0 0 1px rgb(var(--ag-gold-rgb) / .26),
+    inset 0 2px 0 rgb(var(--ag-gold-rgb) / .55),
+    inset 0 1px rgb(var(--ag-hair-rgb) / .10) !important;
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-orange):hover {
+  box-shadow:
+    0 16px 38px rgb(8 5 14 / .34),
+    0 0 0 1px rgb(var(--ag-rail-bright-rgb) / .24),
+    inset 0 2px 0 rgb(var(--ag-rail-bright-rgb) / .45),
+    inset 0 1px rgb(var(--ag-hair-rgb) / .10) !important;
+  }
+
+  /* 光带斜掠（所有卡共享的动效骨架）。 */
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: 0;
+  width: 34%;
+  pointer-events: none;
+  background: linear-gradient(100deg,
+    transparent,
+    rgb(var(--ag-hair-rgb) / .10) 50%,
+    transparent);
+  transform: translateX(-160%) skewX(-8deg);
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:hover::after {
+  animation: ag-sweep .7s cubic-bezier(.22, 1, .36, 1);
+  }
+
+  /* 图标瓦：42px 圆角玻片，逐卡配色。 */
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button > span:first-child {
+  justify-content: flex-start !important;
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button > span:first-child > span:first-child {
+  width: 42px !important;
+  height: 42px !important;
+  margin: 0 !important;
+  border: 1px solid rgb(var(--ag-hair-rgb) / .12) !important;
+  border-radius: 13px !important;
+  background:
+    radial-gradient(circle at 32% 28%,
+      rgb(var(--ag-hair-rgb) / .16),
+      rgb(var(--ag-rail-rgb) / .13) 55%,
+      rgb(var(--ag-ink-rgb) / .30)) !important;
+  color: rgb(var(--ag-rail-bright-rgb)) !important;
+  box-shadow: inset 0 1px rgb(var(--ag-hair-rgb) / .10) !important;
+  transform-origin: center;
+  }
+
+  /* 逐卡图标瓦与图标色。 */
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-blue) > span:first-child > span:first-child {
+  background: radial-gradient(circle at 32% 28%,
+    rgb(var(--ag-hair-rgb) / .20),
+    rgb(var(--ag-rail-rgb) / .32) 55%,
+    rgb(var(--ag-ink-rgb) / .34)) !important;
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-blue) svg { color: rgb(var(--ag-rail-bright-rgb)) !important; 
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-purple) > span:first-child > span:first-child {
+  background: radial-gradient(circle at 32% 28%,
+    rgb(var(--ag-hair-rgb) / .18),
+    rgb(var(--ag-rose-rgb) / .28) 55%,
+    rgb(var(--ag-ink-rgb) / .34)) !important;
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-purple) svg { color: rgb(var(--ag-rose-bright-rgb)) !important; 
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-green) > span:first-child > span:first-child {
+  background: radial-gradient(circle at 32% 28%,
+    rgb(var(--ag-hair-rgb) / .20),
+    rgb(var(--ag-gold-rgb) / .24) 55%,
+    rgb(var(--ag-ink-rgb) / .34)) !important;
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-green) svg { color: rgb(var(--ag-gold-rgb)) !important; 
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-orange) > span:first-child > span:first-child {
+  background: radial-gradient(circle at 32% 28%,
+    rgb(var(--ag-hair-rgb) / .14),
+    rgb(var(--ag-glass-strong-rgb) / .60) 55%,
+    rgb(var(--ag-ink-rgb) / .42)) !important;
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:has(svg.text-chart-orange) svg { color: rgb(var(--ag-rail-bright-rgb)) !important; 
+  }
+
+  /* 图标 hover 微呼吸（signature ag-icon）。 */
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:hover > span:first-child > span:first-child {
+  animation: ag-icon 3.2s cubic-bezier(.45, 0, .55, 1) infinite;
+  }
+
+  /* 卡片文字。 */
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button > span:last-child {
+  align-items: flex-start !important;
+  justify-content: flex-end !important;
+  text-align: left !important;
+  font-size: 15px !important;
+  line-height: 1.35 !important;
+  letter-spacing: .005em !important;
+  }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button > span:last-child,
+& [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button > span:last-child *,
+& [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button [class*="text-default"] {
+  color: rgb(var(--ag-text-rgb)) !important;
+  text-shadow: none !important;
+  }
+
+  /* 亮色卡片。 */
+
+  &[data-dream-shell="light"] [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button {
+  border-color: rgb(109 68 148 / .12) !important;
+  box-shadow:
+    0 10px 30px rgb(42 30 52 / .16),
+    inset 0 1px rgb(255 255 255 / .90) !important;
+  }
+
+  &[data-dream-shell="light"] [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:hover {
+  border-color: rgb(109 68 148 / .30) !important;
+  }
+
+  /* ------------------------------------------------------------
+ * 7. COMPOSER — 统一玻璃 #3（首页 + 线程页，全局门控）
+ *    v3.4：_ComposerLayoutRoot_ 原生 86.5% 实心底透明化，
+ *    玻璃只剩 footer 一层，托盘感消失。
+ *    聚焦紫晶光环呼吸（ag-pulse）+ 金紫徽章组
+ * ------------------------------------------------------------ */
+
+  & div[class*="_ComposerLayoutRoot_"] {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  /* v3.7：横向 3px 溢出会触发原生横向滚动条（底部紫长条），裁掉。 */
+  overflow-x: clip !important;
+  }
+
+  /* v3.8：thread-scroll-footer 首子 = 原生 from-surface 灰蓝实心
+     渐变淡出层。v3.7 改紫墨仍露破绽：该层只到 x=1524（右缘直线
+     截断），左暗右亮成"两块颜色"。现：纵向 alpha 降低 + 右缘
+     横向遮罩淡出，让它彻底融进壳层底沉，边界消失。 */
+
+  & [data-thread-scroll-footer="true"] > :first-child {
+  background: linear-gradient(to top,
+    rgb(var(--ag-ink-rgb) / .34),
+    rgb(var(--ag-ink-rgb) / .15) 58%,
+    transparent 100%) !important;
+  -webkit-mask-image: linear-gradient(to right,
+    rgb(0 0 0) 82%, transparent 99%);
+  mask-image: linear-gradient(to right,
+    rgb(0 0 0) 82%, transparent 99%);
+  }
+
+  & div[class*="_ComposerLayoutBody_"] {
+  background: transparent !important;
+  box-shadow: none !important;
+  /* v3.10：theme.css 残留 blur(16px) 会与 Root 的 18px 叠双层模糊，
+     同时是每帧 backdrop 重采样点，一并清除。 */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  }
+
+  /* v3.10【整栏覆盖】：玻璃从 Footer（h=85）上移到 Root（h=109
+     整栏容器，原生 radius 25px）——v3.9 只画 Footer 导致顶部 16px
+     工具区裸奔，视觉上"输入框上下变窄"。Root 一张玻璃盖满，
+     Footer/Body 全透明只留结构。 */
+
+  & div[class*="_ComposerLayoutRoot_"] {
+  position: relative !important;
+  border: 1px solid var(--ag-glass-border) !important;
+  border-radius: 25px !important;
+  background: linear-gradient(172deg,
+    rgb(var(--ag-glass-rgb) / .58),
+    rgb(var(--ag-ink-rgb) / .46)) !important;
+  box-shadow: var(--ag-glass-shadow), var(--ag-glass-inset) !important;
+  backdrop-filter: var(--ag-glass-blur) !important;
+  -webkit-backdrop-filter: var(--ag-glass-blur) !important;
+  color: rgb(var(--ag-text-rgb)) !important;
+  transition: border-color .2s cubic-bezier(.22, 1, .36, 1);
+  }
+
+  /* Footer（含 [data-ds-part="composer"]）：结构层透明，
+     玻璃由 Root 统一提供。 */
+
+  & div[class*="_ComposerLayoutFooter_"],
+& [data-ds-part="composer"] {
+  position: relative !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  color: rgb(var(--ag-text-rgb)) !important;
+  }
+
+  /* composer 工具条（theme.css 残留实心）：透明。 */
+
+  & [data-ds-part="composer-toolbar"] {
+  background: transparent !important;
+  }
+
+  /* 聚焦：紫晶光环呼吸（signature ag-pulse，v3.4 改 GPU opacity；
+     v3.10 光环随玻璃上移挂 Root 整栏）。 */
+
+  & div[class*="_ComposerLayoutRoot_"]::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 29px;
+  border: 3px solid rgb(var(--ag-rail-rgb) / .30);
+  pointer-events: none;
+  }
+
+  & div[class*="_ComposerLayoutRoot_"]:focus-within {
+  border-color: rgb(var(--ag-rail-rgb) / .38) !important;
+  }
+
+  /* 输入区文字与光标（光标金色）。 */
+
+  & div[class*="_ComposerLayoutFooter_"] [role="textbox"],
+& [data-ds-part="composer"] [role="textbox"] {
+  color: rgb(var(--ag-text-rgb)) !important;
+  caret-color: rgb(var(--ag-gold-rgb)) !important;
+  }
+
+  /* 占位文案（含 ProseMirror ::after 空态）。 */
+
+  & div[class*="_ComposerLayoutFooter_"] p.placeholder,
+& div[class*="_ComposerLayoutFooter_"] p[data-placeholder],
+& div[class*="_ComposerLayoutFooter_"] p.placeholder::after,
+& div[class*="_ComposerLayoutFooter_"] p[data-placeholder]::after {
+  color: rgb(var(--ag-muted-rgb) / .95) !important;
+  font-weight: 540 !important;
+  opacity: 1 !important;
+  }
+
+  /* 底部标签与控件。 */
+
+  & div[class*="_ComposerLayoutFooter_"] [class*="_ComposerFooterLabel_"],
+& div[class*="_ComposerLayoutFooter_"] [class*="_ComposerDropdownLabelValueContent_"] {
+  color: rgb(var(--ag-text-rgb) / .86) !important;
+  opacity: 1 !important;
+  }
+
+  /* 语义按钮组：统一玻璃胶囊（含模型选择）。 */
+
+  & div[class*="_ComposerLayoutFooter_"] button[aria-label^="切换项目"],
+& div[class*="_ComposerLayoutFooter_"] button[aria-label="更改权限"],
+& div[class*="_ComposerLayoutFooter_"] button[aria-haspopup="menu"] {
+  border: 1px solid rgb(var(--ag-hair-rgb) / .10) !important;
+  border-radius: 999px !important;
+  background: rgb(var(--ag-hair-rgb) / .04) !important;
+  color: rgb(var(--ag-text-rgb) / .88) !important;
+  padding-inline: 10px !important;
+  white-space: nowrap !important;
+  }
+
+  /* + 按钮：金色（添加内容）。 */
+
+  & div[class*="_ComposerLayoutFooter_"] button[aria-label="添加文件等内容"],
+& div[class*="_ComposerLayoutFooter_"] button[aria-label="添加文件等内容"] * {
+  color: rgb(var(--ag-gold-rgb)) !important;
+  }
+
+  & div[class*="_ComposerLayoutFooter_"] button[aria-label="添加文件等内容"]:hover {
+  background: rgb(var(--ag-gold-rgb) / .12) !important;
+  }
+
+  /* 权限徽章：金字（完全访问）。 */
+
+  & div[class*="_ComposerLayoutFooter_"] button[aria-label="更改权限"],
+& div[class*="_ComposerLayoutFooter_"] button[aria-label="更改权限"] * {
+  color: rgb(var(--ag-gold-rgb) / .96) !important;
+  }
+
+  /* 发送：紫→金渐变实心（v3.10 紫金点睛，输入文本后的唯一
+     高饱和点；深色图标贯穿紫端与金端，禁用态暗玻璃对比分明）。 */
+
+  & div[class*="_ComposerLayoutFooter_"] button[aria-label="发送"] {
+  border: 0 !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg,
+    rgb(var(--ag-rail-rgb)),
+    rgb(var(--ag-gold-rgb)) 88%) !important;
+  color: rgb(22 14 30) !important;
+  box-shadow:
+    0 6px 18px rgb(var(--ag-gold-rgb) / .30),
+    0 2px 10px rgb(var(--ag-rail-rgb) / .35) !important;
+  transition: transform .18s cubic-bezier(.22, 1, .36, 1), filter .18s ease;
+  }
+
+  /* 禁用态（无文本）：暗玻璃低饱和——与输入文本后的紫金
+     渐变形成明确的状态对比。 */
+
+  & div[class*="_ComposerLayoutFooter_"] button[aria-label="发送"]:disabled {
+  background: rgb(var(--ag-glass-rgb) / .30) !important;
+  color: rgb(var(--ag-text-rgb) / .45) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: none !important;
+  }
+
+  & div[class*="_ComposerLayoutFooter_"] button[aria-label="发送"]:hover {
+  transform: scale(1.05) !important;
+  filter: brightness(1.1) !important;
+  }
+
+  /* 亮色 Composer（v3.10 挂 Root 整栏）。 */
+
+  &[data-dream-shell="light"] div[class*="_ComposerLayoutRoot_"] {
+  background: linear-gradient(168deg,
+    rgb(252 248 244 / .82),
+    rgb(247 240 234 / .72) 82%) !important;
+  border-color: rgb(109 68 148 / .14) !important;
+  box-shadow:
+    0 14px 36px rgb(42 30 52 / .18),
+    inset 0 1px rgb(255 255 255 / .92) !important;
+  }
+
+  /* ------------------------------------------------------------
+ * 8. THREAD SURFACE — v3.2 核心：去大板，房间直接对话
+ *    阅读轨全透明；助手消息裸排（微纱+文字影）；
+ *    用户消息=统一玻璃小泡；surface 只留轻纱罩。
+ * ------------------------------------------------------------ */
+
+  /* 轻纱罩：只做纵向可读性，不再是大板。 */
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"]))::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  pointer-events: none !important;
+  background-image:
+    linear-gradient(180deg,
+      rgb(var(--ag-ink-rgb) / .18) 0%,
+      rgb(var(--ag-ink-rgb) / .05) 22%,
+      rgb(var(--ag-ink-rgb) / .10) 55%,
+      rgb(var(--ag-ink-rgb) / .38) 100%),
+    linear-gradient(90deg,
+      rgb(var(--ag-ink-rgb) / .14) 0%,
+      transparent 38%,
+      rgb(var(--ag-ink-rgb) / .10) 100%) !important;
+  background-position: 0 0, 0 0 !important;
+  background-repeat: no-repeat !important;
+  background-size: 100% 100%, 100% 100% !important;
+  opacity: 1 !important;
+  }
+
+  &[data-dream-shell="light"] main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"]))::before {
+  background-image:
+    linear-gradient(180deg,
+      rgb(255 252 248 / .26) 0%,
+      rgb(255 252 248 / .08) 22%,
+      rgb(var(--ag-ink-rgb) / .10) 55%,
+      rgb(var(--ag-ink-rgb) / .34) 100%),
+    linear-gradient(90deg,
+      rgb(255 250 244 / .24) 0%,
+      transparent 38%,
+      rgb(255 250 244 / .14) 100%) !important;
+  }
+
+  /* v3.4：_MainContentTopFade_ 原生深灰渐变条（对话区顶部
+   无用样式）→ 紫墨渐变，融入轻纱罩。 */
+
+  & div[class*="_MainContentTopFade_"] {
+  background: linear-gradient(180deg,
+    rgb(var(--ag-ink-rgb) / .30),
+    transparent) !important;
+  }
+
+  /* v3.4：thread 对话名栏（fixed 面包屑工具栏）——用户指定
+   直接去掉，对话区上方只留背景。 */
+
+  & main > header:has([class*="thread-header"]) {
+  display: none !important;
+  }
+
+  /* 【v3.2 关键】阅读轨：大玻璃板 → 全透明。 */
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-thread-find-target="conversation"] {
+  position: relative !important;
+  z-index: 1 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  }
+
+  /* 【v3.2 关键】消息容器（theme.css 实心残留）：透明。 */
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-ds-part="message"] {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  }
+
+  /* 助手消息：裸排——文字直接落在雾上。 */
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-message-author-role="assistant"],
+& main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-local-conversation-final-assistant] {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  }
+
+  /* 用户消息：统一玻璃小泡（v3.4 性能：去 backdrop-filter——背景
+   画布已 blur(4px)，泡内再 blur 是双重模糊；滚动容器内每帧重采样。
+   底色 alpha 补偿 .48→.62 维持可读性，观感不变）。 */
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-user-message-bubble] {
+  color: rgb(var(--ag-text-rgb)) !important;
+  border: 1px solid var(--ag-glass-border) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(168deg,
+    rgb(var(--ag-glass-strong-rgb) / .62),
+    rgb(var(--ag-rose-rgb) / .12)) !important;
+  box-shadow: 0 8px 22px rgb(8 5 14 / .24), var(--ag-glass-inset) !important;
+  }
+
+  /* 旧 renderer 兜底（无 user bubble 时，用户锚点=玻璃泡）。 */
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-local-conversation-user-anchor]:not(:has([data-user-message-bubble])) {
+  border: 1px solid var(--ag-glass-border) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(168deg,
+    rgb(var(--ag-glass-strong-rgb) / .60),
+    rgb(var(--ag-rose-rgb) / .12)) !important;
+  box-shadow: 0 8px 22px rgb(8 5 14 / .24), var(--ag-glass-inset) !important;
+  }
+
+  /* 26.814 markdown 文字修复：裸排文字可读性（轻纱+文字影）。 */
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-thread-find-target="conversation"] :is([class*="_MarkdownRoot_"],
+[class*="_MarkdownRoot_"] *,
+[class*="_Paragraph_"],
+[class*="_List_"],
+[class*="_ListItem_"],
+[class*="text-default"],
+[class*="text-text/60"],
+[class*="text-tertiary"],
+[class*="text-secondary"]) {
+  color: rgb(var(--ag-text-rgb)) !important;
+  text-shadow: 0 1px 12px rgb(8 5 14 / .48) !important;
+  }
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-thread-find-target="conversation"] :is([class*="activity-header"],
+[class*="activity-header"] *,
+[class*="loading-shimmer-pure-text"]) {
+  color: rgb(var(--ag-muted-rgb) / .92) !important;
+  text-shadow: 0 1px 10px rgb(8 5 14 / .44) !important;
+  }
+
+  /* v3.4：activity 行小图标对比度（QA：紫底上偏吃力）。 */
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-thread-find-target="conversation"] [class*="activity-header"] svg {
+  filter: drop-shadow(0 1px 3px rgb(8 5 14 / .65));
+  }
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-thread-find-target="conversation"] a {
+  color: rgb(var(--ag-rail-bright-rgb)) !important;
+  }
+
+  /* 代码块保持墨面（裸排区的唯一实心，护代码可读）。 */
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"])) pre,
+& main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"])) code {
+  border-color: rgb(var(--ag-hair-rgb) / .08) !important;
+  background: rgb(12 8 18 / .82) !important;
+  }
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-thread-find-target="conversation"] :is(pre,
+pre *,
+code,
+[data-markdown-copy="inline-code"]) {
+  color: rgb(var(--ag-text-rgb)) !important;
+  }
+
+  /* ------------------------------------------------------------
+ * 8a2. GOLD ACCENT — 紫金相间全屋化（v3.10）
+ *   侧栏验证配方推广：金箔标题 + hover 金光反馈。
+ *   thread 小标题金箔+紫金底线；strong 金 / em 亮紫（相间节奏）；
+ *   助手消息左缘紫金渐变竖线（紫金身份线）；全屋交互 hover
+ *   金光（侧栏同款，避开发送按钮等已有专属 hover 设计）。
+ * ------------------------------------------------------------ */
+
+  /* thread markdown 标题：金箔字 + 紫金渐变底线（呼应三色线）。 */
+
+  & [data-thread-find-target="conversation"] :is(h1, h2, h3, h4) {
+  color: rgb(var(--ag-gold-rgb) / .92) !important;
+  letter-spacing: .02em !important;
+  text-shadow: 0 1px 10px rgb(8 5 14 / .40) !important;
+  border-bottom: 1px solid transparent !important;
+  border-image: linear-gradient(90deg,
+    rgb(var(--ag-rail-rgb) / .42),
+    rgb(var(--ag-gold-rgb) / .46) 55%,
+    transparent 92%) 1 !important;
+  padding-bottom: .28em !important;
+  }
+
+  /* 紫金相间：粗体=金，斜体=亮紫（AI 回答的呼吸节奏）。 */
+
+  & [data-thread-find-target="conversation"] strong {
+  color: rgb(var(--ag-gold-rgb) / .95) !important;
+  font-weight: 640 !important;
+  }
+
+  & [data-thread-find-target="conversation"] em {
+  color: rgb(var(--ag-rail-bright-rgb)) !important;
+  }
+
+  /* 助手消息左缘：紫金渐变身份线（与用户玻璃泡形成紫金对话）。 */
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-message-author-role="assistant"] {
+  border-left: 2px solid transparent !important;
+  border-image: linear-gradient(180deg,
+    rgb(var(--ag-rail-rgb) / .45),
+    rgb(var(--ag-gold-rgb) / .45)) 1 !important;
+  padding-left: 14px !important;
+  }
+
+  /* activity 小标题（"正在编辑"等）：金箔升级（原 muted）。 */
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"]):not(:has([role="main"])) [data-thread-find-target="conversation"] :is([class*="activity-header"],
+[class*="activity-header"] *) {
+  color: rgb(var(--ag-gold-rgb) / .80) !important;
+  text-shadow: 0 1px 10px rgb(8 5 14 / .44) !important;
+  }
+
+  /* 全屋 hover 金光反馈（侧栏同款；排除发送按钮/菜单条等
+     已有专属 hover 的元素，避免破坏既有渐变设计）。 */
+
+  & main :is(button, [role="button"]):not([aria-label="发送"]):hover,
+  & [data-ds-part="message"] :is(button, [role="button"]):hover,
+  & [data-ds-part="right-panel"] :is(button, [role="button"]):hover {
+  background-color: rgb(var(--ag-gold-rgb) / .08) !important;
+  transition: background-color .18s ease;
+  }
+
+  & main :is(button, [role="button"]):not([aria-label="发送"]):hover svg,
+  & [data-ds-part="message"] :is(button, [role="button"]):hover svg {
+  color: rgb(var(--ag-gold-rgb) / .92) !important;
+  }
+
+  /* ------------------------------------------------------------
+ * 8b. DIALOG — 统一玻璃（弹层同配方）
+ * ------------------------------------------------------------ */
+
+  & [data-ds-part="dialog"] {
+  background: linear-gradient(168deg,
+    rgb(var(--ag-glass-strong-rgb) / .66),
+    rgb(var(--ag-glass-rgb) / .56)) !important;
+  border: 1px solid var(--ag-glass-border) !important;
+  box-shadow: var(--ag-glass-shadow), var(--ag-glass-inset) !important;
+  backdrop-filter: var(--ag-glass-blur) !important;
+  -webkit-backdrop-filter: var(--ag-glass-blur) !important;
+  }
+
+  /* ------------------------------------------------------------
+ * 9. FOCUS / SCROLLBAR / SELECTION / APP MENU
+ *    v3.4：选中/悬停边框特效全部取消（用户指定）。
+ * ------------------------------------------------------------ */
+
+  & :is(button, a, [role="button"], [role="textbox"]):focus-visible,
+  & :focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  }
+
+  & ::selection {
+  background: rgb(var(--ag-rail-rgb) / .35) !important;
+  }
+
+  /* v3.4：右侧输出面板（bg-surface-elevated-secondary 浮卡，
+   如"输出内容"）——统一玻璃，保留自身 rounded-3xl。 */
+
+  & div[class*="bg-surface-elevated-secondary"] {
+  background: linear-gradient(172deg,
+    rgb(var(--ag-glass-rgb) / .58),
+    rgb(var(--ag-ink-rgb) / .46)) !important;
+  border: 1px solid var(--ag-glass-border) !important;
+  box-shadow: var(--ag-glass-shadow), var(--ag-glass-inset) !important;
+  backdrop-filter: var(--ag-glass-blur) !important;
+  -webkit-backdrop-filter: var(--ag-glass-blur) !important;
+  color: rgb(var(--ag-text-rgb)) !important;
+  }
+
+  /* v3.8：面板内 sticky 分组标题（"输出内容"/"来源"）透明化。
+     v3.5 给标题自带一层玻璃，与面板玻璃之间 10px 间隙露亮
+     背景，成两条"原配色灰条"。玻璃只留面板一层，标题纯文字。 */
+
+  & div[class*="bg-surface-elevated-secondary"] header[class*="bg-surface-elevated-secondary"] {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  color: rgb(var(--ag-muted-rgb)) !important;
+  }
+
+  /* v3.5：面板分区底部分割线（after:bg-border 原生灰线）——
+     染成玻璃描边色，弱化到若隐若现。 */
+
+  & div[class*="bg-surface-elevated-secondary"] [class*="after:bg-border"]::after {
+  background: rgb(var(--ag-hair-rgb) / .10) !important;
+  }
+
+  /* 对话区左侧"跳转到用户消息"刻度轨整轨隐藏：其底端浅灰
+     L 形框从输入框圆角缺口露出（截图+隐藏实验确认）。 */
+
+  & main nav[class*="left-3"],
+  & main nav[class*="left-4"] {
+  display: none !important;
+  }
+
+  /* Codex 原生 scrollbar-color 会禁用 ::-webkit-scrollbar
+     伪元素——必须用标准属性覆盖才生效。 */
+
+  & ::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+  }
+
+  & ::-webkit-scrollbar-track {
+  background: transparent !important;
+  }
+
+  & ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg,
+    rgb(var(--ag-rail-rgb) / .38),
+    rgb(var(--ag-rose-rgb) / .30)) !important;
+  border-radius: 8px !important;
+  border: 2px solid transparent !important;
+  background-clip: padding-box !important;
+  }
+
+  & ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg,
+    rgb(var(--ag-rail-rgb) / .70),
+    rgb(var(--ag-rose-rgb) / .55)) !important;
+  background-clip: padding-box !important;
+  }
+
+  /* ------------------------------------------------------------
+   * v3.9（用户第 8 轮反馈：右侧原配色/输入框一圈透明——
+   *   隐藏实验+像素采样闭环定位，四个真凶一次清）
+   * ------------------------------------------------------------ */
+
+  /* 真凶1·右面板灰条：sticky header 的 ::before 原生灰蓝
+     实心带（before:bg-surface-elevated-secondary，rgb(61,67,79)，
+     h=10px 悬在 header 顶缘上方）。v3.8 只透明了 header 自身，
+     漏了伪元素。透明化，10px 间隙由面板玻璃自然填充。 */
+
+  & div[class*="bg-surface-elevated-secondary"] header::before {
+  background: transparent !important;
+  }
+
+  /* 真凶2·右面板透灰：玻璃 .58/.46 太透，背景键盘亮灰区透
+     出成"灰带"。结构面板统一加厚到 .68/.58。 */
+
+  & div[class*="bg-surface-elevated-secondary"] {
+  background: linear-gradient(172deg,
+    rgb(var(--ag-glass-rgb) / .68),
+    rgb(var(--ag-ink-rgb) / .58)) !important;
+  }
+
+  /* 真凶3·侧栏竖线：border-right 1px 玻璃描边未生效，原生
+     0.6px 亮色边露成全高竖线。改发丝级暗描边，视觉归零。 */
+
+  & aside.app-shell-left-panel,
+  & [data-ds-part="sidebar"] {
+  border-right: 1px solid rgb(var(--ag-hair-rgb) / .07) !important;
+  }
+
+  /* 真凶4·输入框"一圈透明/灰L"：聚焦光环 ::after 的 opacity:0
+     未生效，2.42px 紫环常亮绕框。opacity 加 !important，
+     仅聚焦时呼吸。（v3.10 光环挂 Root） */
+
+  & div[class*="_ComposerLayoutRoot_"]::after {
+  opacity: 0 !important;
+  }
+
+  & div[class*="_ComposerLayoutRoot_"]:focus-within::after {
+  opacity: 1 !important;
+  animation: ag-pulse 2.6s cubic-bezier(.45, 0, .55, 1) infinite;
+  }
+
+  /* 真凶5·右缘紫长条：main 表面滚动条未覆盖（原规则只到
+     thread 容器）。全 main 子树统一细紫滚动条。 */
+
+  & main,
+  & main * {
+  scrollbar-color: rgb(var(--ag-rail-rgb) / .35) transparent !important;
+  scrollbar-width: thin !important;
+  }
+
+  & :is(._ApplicationMenuTopBar_,
+[data-app-shell-application-menu-bar]) button {
+  color: rgb(var(--ag-text-rgb) / .82) !important;
+  }
+
+  & :is(._ApplicationMenuTopBar_,
+[data-app-shell-application-menu-bar]) button:hover,
+& :is(._ApplicationMenuTopBar_,
+[data-app-shell-application-menu-bar]) button:focus-visible {
+  color: rgb(var(--ag-text-rgb)) !important;
+  background: rgb(var(--ag-rail-rgb) / .12) !important;
+  }
+
+  /* ------------------------------------------------------------
+ * 10. REDUCED MOTION — 全部签名动效关闭
+ * ------------------------------------------------------------ */
+
+  @media (prefers-reduced-motion: reduce) {
+  & div:has(> div[class*="_ApplicationMenuTopBar_"])::before,
+& [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button,
+& [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:hover::after,
+& [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button:hover > span:first-child > span:first-child,
+& [role="main"]:has([data-testid="home-icon"]) .heading-xl::before,
+& div[class*="_ComposerLayoutRoot_"]:focus-within {
+
+    animation: none !important;
+    }
+
+  & [role="main"]:has([data-testid="home-icon"]) [class*="group/home-suggestions"] > div > div > div > button {
+
+    opacity: 1 !important;
+    transition: none !important;
+    }
+  }
+}
