@@ -295,3 +295,6 @@ d:\Test\work1\amethyst-gaze-skin\
 | HTML 预览 | `d:\Test\work1\amethyst-gaze-skin\pages\index.html` |
 | 皮肤文件 | `d:\Test\work1\amethyst-gaze-skin\preset\` |
 | 校验命令 | `& 'D:\yingyong\CodexDreamSkin\payload\runtime\node\node.exe' 'D:\yingyong\CodexDreamSkin\payload\scripts\validate-safe-css-file.mjs' '<theme.css>'` |
+
+- **仓库目录迁移**：项目从 `d:\Test\work1\amethyst-gaze-skin` 移至 `D:\Test\GUAN\youxi-skin\amethyst-gaze-skin`。引擎侧产物不引用仓库路径（deploy 是内容拷贝），但计划任务的 VBS 指向旧路径会每分钟报 0x80070002 静默失败——**移动目录后必须从新位置重跑 `tools\install-guard.ps1`**（脚本用 $PSScriptRoot 相对定位，天然路径无关）。
+
