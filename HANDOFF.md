@@ -1,8 +1,14 @@
-# Amethyst Gaze · Codex 皮肤交接文档
+# 有栖 · Codex 皮肤交接文档
 
 下一个人接手必读。这份文档把项目背景、已完成工作、设计决策、待定项一次性讲清楚。
 
-## ★ 最新状态（2026-08-20 凌晨，v3.11 · 批判审查轮）
+## ★ 最新状态（2026-08-20 凌晨，v3.12 · 更名「有栖」+ 杀软误报事件）
+
+**项目更名**：Amethyst Gaze（紫晶凝视）→ **有栖（Arisu）**。展示层全部更名（铭牌 `content: "有栖"`、theme.json name/brandSubtitle/tagline/statusText、ag-toggle 提示语、文档标题、仓库名）；**技术标识保留不动**（theme-id `preset-amethyst-gaze`、CSS 变量前缀 `--ag-`、`__AG_TOGGLE_REGISTRY__` 键——改名纯风险无收益）。deploy.cjs 块头定位双兼容（新「有栖 v3」优先，旧 "Amethyst Gaze v3" 兜底，引擎现存旧块可平滑过渡）。theme.json 现在也随 deploy 部署（此前只部署 CSS，元数据不跟随）。
+
+**杀软误报事件**：杀软把 Startup 的 `Codex Dream Skin.lnk`（托盘自启快捷方式）报 `HEUR:Trojan/LNK.Agent.b` 删除——LNK 指向脚本的典型启发式误报。**皮肤不依赖该快捷方式**（持久化由 ag-guard 计划任务承担），Codex 手动冷启后 guard 照常接管恢复（实测走通）。遗留问题：start-dream-skin 的操作锁 Mutex 若被卡死的旧实例持有，后续实例全部静默排队——表现为 start 无输出无动作。处理：杀掉 `powershell.exe -File ...start-dream-skin.ps1` 残留进程即释放锁（注意过滤进程时别匹配到自己的命令行字面量，会自杀）。
+
+## ★ v3.11（2026-08-20 凌晨，批判审查轮）
 
 以批判视角复查自己的工作，发现并修复四类真问题：
 

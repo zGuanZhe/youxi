@@ -1,5 +1,5 @@
 /* ============================================================
- * Amethyst Gaze v3.10 — “紫晶凝视 · 雾中房” · CodexDreamSkin Track 2
+ * 有栖 v3.12 — “紫晶凝视 · 雾中房” · CodexDreamSkin Track 2
  * ============================================================
  * v3.10 vs v3.9（用户第 9 轮反馈：输入栏覆盖不全/金色偏少/
  *   卡顿/三重持久化）
@@ -556,10 +556,10 @@ footer) span:has(svg) {
   box-shadow: 0 0 18px rgb(var(--ag-gold-rgb) / .30) !important;
   }
 
-  /* 身份铭牌：右下角金色 AMETHYST GAZE（signature ag-shimmer）。 */
+  /* 身份铭牌：右下角金色「有栖」（v3.12 起项目更名为有栖）。 */
 
   & [role="main"]:has([data-testid="home-icon"]) .heading-xl::before {
-  content: "AMETHYST GAZE · 紫晶凝视";
+  content: "有栖";
   position: absolute;
   right: 24px;
   bottom: 6px;

@@ -1,5 +1,5 @@
 /* ============================================================
- * ag-toggle.js — Amethyst Gaze 页内主题切换按钮 v2
+ * ag-toggle.js — 有栖（Arisu）页内主题切换按钮 v2
  * ============================================================
  * 嵌入契约：本文件由 tools/deploy.cjs 原样注入引擎
  * renderer-inject.js 的 IIFE 内部（最终 return 之前），
@@ -142,9 +142,9 @@
       const on = readTruth();
       const stalled = !window[STATE_KEY];
       const label = stalled
-        ? "Amethyst Gaze · 引擎已暂停（重启注入器后可用）"
-        : on ? "Amethyst Gaze · 皮肤已启用 — 点击切回原版"
-          : "Amethyst Gaze · 皮肤已停用 — 点击换回皮肤";
+        ? "有栖 · 引擎已暂停（重启注入器后可用）"
+        : on ? "有栖 · 皮肤已启用 — 点击切回原版"
+          : "有栖 · 皮肤已停用 — 点击换回皮肤";
       if (button.getAttribute("aria-checked") !== (on ? "true" : "false")) {
         button.setAttribute("aria-checked", on ? "true" : "false");
       }

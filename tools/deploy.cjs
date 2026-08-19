@@ -16,17 +16,23 @@ const THEME_CROPPED = path.join(PRESET_DIR, 'theme-cropped.css');
 const TOGGLE_SRC = path.join(PRESET_DIR, 'ag-toggle.js');
 const THEME_TARGET = path.join(STATE_ROOT, 'active-theme', 'theme.css');
 
-// 1) theme.css 裁剪（去实心背景；注意：此文件禁止任何 CSS 注释，否则沙箱校验崩溃）
+// 1) theme.css 裁剪 + theme.json 元数据（去实心背景；注意：theme.css
+//    禁止任何 CSS 注释，否则沙箱校验崩溃）
 const cropped = fs.readFileSync(THEME_CROPPED, 'utf8');
 fs.writeFileSync(THEME_TARGET, cropped, 'utf8');
-console.log('theme.css deployed (solid backgrounds removed).');
+const themeMetaSrc = path.join(PRESET_DIR, 'theme.json');
+const themeMetaTarget = path.join(STATE_ROOT, 'active-theme', 'theme.json');
+fs.copyFileSync(themeMetaSrc, themeMetaTarget);
+console.log('theme.css + theme.json deployed (solid backgrounds removed).');
 
-// 2) dream-skin.css：截断旧皮肤块（定位 "Amethyst Gaze v3" 注释头）并注入当前源
+// 2) dream-skin.css：截断旧皮肤块并注入当前源
+//    块头定位双兼容：优先新名「有栖 v3」，兜底旧名 "Amethyst Gaze v3"
+//    （引擎现存块可能是改名前部署的旧头）
 const css = fs.readFileSync(ENGINE_CSS, 'utf8');
 const lines = css.split('\n');
 let cutIdx = -1;
 for (let i = 0; i < lines.length; i++) {
-  if (/Amethyst Gaze v3/.test(lines[i])) { cutIdx = i; break; }
+  if (/有栖 v3/.test(lines[i]) || /Amethyst Gaze v3/.test(lines[i])) { cutIdx = i; break; }
 }
 if (cutIdx < 0) { console.error('FATAL: skin block header not found'); process.exit(1); }
 // 回退到块注释开始（/* ==== 行）

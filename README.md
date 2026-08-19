@@ -1,8 +1,8 @@
-# Amethyst Gaze · 紫晶凝视
+# 有栖 · Arisu
 
 OpenAI Codex 桌面版自定义皮肤：紫金配色的全窗玻璃拟态（glassmorphism）视觉系统，带页内主题切换按钮与自愈守护。
 
-基于 CodexDreamSkin 引擎的 Track 2 高阶视觉方案。当前版本 **v3.11**，适配 Codex 26.814。
+前身 Amethyst Gaze（紫晶凝视），v3.12 起更名「有栖」。基于 CodexDreamSkin 引擎的 Track 2 高阶视觉方案，适配 Codex 26.814。
 
 ## 特性
 
