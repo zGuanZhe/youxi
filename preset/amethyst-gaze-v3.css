@@ -1,6 +1,24 @@
 /* ============================================================
- * 有栖 v3.16 — “紫晶凝视 · 雾中房” · CodexDreamSkin Track 2
+ * 有栖 v3.17 — “紫晶凝视 · 雾中房” · CodexDreamSkin Track 2
  * ============================================================
+ * v3.17 vs v3.16（Codex 26.818 重装适配：三处 DOM 漂移修复）
+ *   1) 【标题栏复活】26.818 删除 thread-header class（现为
+ *      pointer-events-none fixed z-30 h-toolbar 族），旧
+ *      main > header:has([class*="thread-header"]) 失配 →
+ *      对话名栏带 section 4 顶栏玻璃显示（"标题漂移+多余
+ *      色块"）。新门控 main[data-ag-bare] > header（thread
+ *      页表面专属标注，首页 main 无此属性不误伤）。
+ *   2) 【代码块卡片】26.818 代码块升级 _CodeBlock_ 卡片 +
+ *      _StickyActionBar_ tab 条（"纯文本"），容器与 tab 均
+ *      原生灰蓝未换肤。墨面上收到卡片容器（渐变+hairline+
+ *      玻璃影），tab 条半透紫墨+底缘 hairline，卡内 pre/code
+ *      转透明避免双重叠深；散装 pre/code 保留原墨面规则。
+ *   3) 【底部阴影带】26.818 scroll-footer 渐变层比 composer
+ *      宽 35px 且左移 84px，v3.8 单侧右缘 mask 左边露实心
+ *      紫墨暗带（"下方阴影块"，首页无此层故不受影响）。
+ *      mask 改两端对称淡出（1%~9% / 91%~99%），alpha
+ *      .34→.26。
+ *
  * v3.16 vs v3.15（性能大工程第三阶段：引擎侧双补丁，皮肤块
  *   视觉冻结零改动）—— 真正的卡顿元凶在皮肤之外：
  *   1) 【引擎 CSS 补丁】deploy.cjs 对引擎 head 全量替换
@@ -945,19 +963,20 @@ footer) span:has(svg) {
   }
 
   /* v3.8：thread-scroll-footer 首子 = 原生 from-surface 灰蓝实心
-     渐变淡出层。v3.7 改紫墨仍露破绽：该层只到 x=1524（右缘直线
-     截断），左暗右亮成"两块颜色"。现：纵向 alpha 降低 + 右缘
-     横向遮罩淡出，让它彻底融进壳层底沉，边界消失。 */
+     渐变淡出层。v3.7 改紫墨仍露破绽。v3.17：26.818 该层比
+     composer 宽 35px 且左移 84px，单侧 mask 左缘会露出实心
+     紫墨暗带（用户反馈"下方阴影块"）——mask 改两端对称淡出，
+     alpha .34→.26，渐变只在输入框正后方可见。 */
 
   & [data-thread-scroll-footer="true"] > :first-child {
   background: linear-gradient(to top,
-    rgb(var(--ag-ink-rgb) / .34),
-    rgb(var(--ag-ink-rgb) / .15) 58%,
+    rgb(var(--ag-ink-rgb) / .26),
+    rgb(var(--ag-ink-rgb) / .12) 58%,
     transparent 100%) !important;
   -webkit-mask-image: linear-gradient(to right,
-    rgb(0 0 0) 82%, transparent 99%);
+    transparent 1%, rgb(0 0 0) 9%, rgb(0 0 0) 91%, transparent 99%);
   mask-image: linear-gradient(to right,
-    rgb(0 0 0) 82%, transparent 99%);
+    transparent 1%, rgb(0 0 0) 9%, rgb(0 0 0) 91%, transparent 99%);
   }
 
   & div[class*="_ComposerLayoutBody_"] {
@@ -1180,9 +1199,15 @@ footer) span:has(svg) {
   }
 
   /* v3.4：thread 对话名栏（fixed 面包屑工具栏）——用户指定
-   直接去掉，对话区上方只留背景。 */
+     直接去掉，对话区上方只留背景。
+     v3.17：26.818 改版，header 的 thread-header class 消失
+     （现为 pointer-events-none fixed z-30 h-toolbar 族），
+     旧 :has() 选择器失配 → 标题栏以原生结构存活并套上
+     section 4 顶栏玻璃（= 用户看到的"标题漂移 + 多余色块"）。
+     新门控：data-ag-bare 是 thread 页 main 表面专属标注
+     （首页 main 无此属性），main 直接子 header 即对话名栏。 */
 
-  & main > header:has([class*="thread-header"]) {
+  & main[data-ag-bare] > header {
   display: none !important;
   }
 
@@ -1297,7 +1322,38 @@ footer) span:has(svg) {
   color: rgb(var(--ag-rail-bright-rgb)) !important;
   }
 
-  /* 代码块保持墨面（裸排区的唯一实心，护代码可读）。 */
+  /* 代码块保持墨面（裸排区的唯一实心，护代码可读）。
+     v3.17：26.818 代码块升级为卡片结构 _CodeBlock_（容器
+     bg-secondary-soft-alpha 原生灰蓝）+ _StickyActionBar_
+     （"纯文本" tab 条，原生 rgb(46,52,64) 实心）——两处均
+     未覆盖（用户反馈"有的内容没应用皮肤"）。墨面上收到卡片
+     容器，pre/code 在卡片内转透明避免双重叠深。 */
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"])[data-ag-bare] [class*="_CodeBlock_"] {
+  background: linear-gradient(180deg,
+    rgb(16 11 24 / .88),
+    rgb(12 8 18 / .82)) !important;
+  border: 1px solid rgb(var(--ag-hair-rgb) / .10) !important;
+  box-shadow: 0 8px 22px rgb(8 5 14 / .24), var(--ag-glass-inset) !important;
+  }
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"])[data-ag-bare] [class*="_StickyActionBar_"] {
+  background: rgb(16 11 24 / .45) !important;
+  background-image: none !important;
+  border-bottom: 1px solid rgb(var(--ag-hair-rgb) / .12) !important;
+  color: rgb(var(--ag-muted-rgb) / .92) !important;
+  }
+
+  & main:is(.main-surface,
+[data-app-shell-main-surface],
+[class*="_MainContentSurface_"])[data-ag-bare] [class*="_CodeBlock_"] :is(pre, code) {
+  background: transparent !important;
+  border-color: transparent !important;
+  }
 
   & main:is(.main-surface,
 [data-app-shell-main-surface],

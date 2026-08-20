@@ -2,6 +2,16 @@
 
 下一个人接手必读。这份文档把项目背景、已完成工作、设计决策、待定项一次性讲清楚。
 
+## ★ v3.17（2026-08-20，Codex 26.818 重装适配：三处 DOM 漂移修复）
+
+用户卸载重装 Codex（26.814→26.818，为根除 CLI 搬迁 bug）后对话页出现三处异常，全部为 26.818 DOM 改版导致的选择器失配：
+
+1. **对话标题栏复活**：26.818 删除 `thread-header` class（现为 `pointer-events-none fixed z-30 h-toolbar` 族），`main > header:has([class*="thread-header"])` 失配 → 标题栏没被隐藏反而套上顶栏玻璃（用户看到"标题漂移+多余色块"）。修复：`main[data-ag-bare] > header`——data-ag-bare 是 thread 页 main 表面专属标注（首页 main 无此属性），语义不变且免疫 class 改名。
+2. **代码块未换肤**：26.818 代码块升级为 `_CodeBlock_` 卡片（bg-secondary-soft-alpha 原生灰蓝）+ `_StickyActionBar_`（"纯文本" tab 条，rgb(46,52,64) 实心）。修复：墨面上收到卡片容器（渐变+hairline+玻璃影），tab 条半透紫墨+底缘 hairline，**卡内 pre/code 转透明避免双重叠深**；散装 pre/code 保留原墨面规则。
+3. **底部阴影带**：26.818 scroll-footer 渐变层比 composer 宽 35px 且左移 84px，v3.8 的单侧右缘 mask 左边露出实心紫墨暗带（首页无此层故不受影响）。修复：mask 改两端对称淡出（1%~9% / 91%~99%），alpha .34→.26。
+
+**⚠ 部署链路新坑（本次实测踩到）**：`deploy.cjs` 更新 dream-skin.css 后，**仅 reload Codex 页面不生效**——injector.mjs --watch 进程在内存里缓存着旧 CSS，reload 只会重注入缓存版。必须**重启 injector 进程**（杀 node.exe 注入器，按原命令行参数重启）。"重启 Codex"之所以有效，正是因为 launcher 会拉起新 injector。以后 deploy 的标准收尾 = 重启 injector + reload 页面。
+
 ## ★ 运维模式变更（2026-08-20，晚于 v3.16）：守护拆除 · 纯快捷方式驱动
 
 **用户最终决策**：皮肤 = 用户主动选择的动作，不是需要维持的系统状态。
