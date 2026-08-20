@@ -2,6 +2,24 @@
 
 下一个人接手必读。这份文档把项目背景、已完成工作、设计决策、待定项一次性讲清楚。
 
+## ★ 运维模式变更（2026-08-20，晚于 v3.16）：守护拆除 · 纯快捷方式驱动
+
+**用户最终决策**：皮肤 = 用户主动选择的动作，不是需要维持的系统状态。
+- 点「Codex 有栖」快捷方式 → 上皮肤（launcher → Codex 带 CDP → injector 注入）
+- 裸开 Codex（开始菜单/任务栏）→ **原版，无皮肤——这是预期行为，不是 bug**，不要再加"自愈"
+
+**已拆除**：`CodexDreamSkin AG Guard` 计划任务（`schtasks /delete`）。已全量确认无其他自启动残留：Startup 文件夹、HKCU Run 键、全部计划任务均无 CodexDreamSkin 项。托盘自启 LNK 此前已被火绒误报删除，未重建。
+
+**保留的活链路**（全部由用户点击触发，无常驻）：
+- `youxi-launcher.exe`：快速路径直启 + 兜底分支（点图标时 Codex 在跑无 CDP → 引擎脚本接管）——兜底也是用户主动点击才发生，符合哲学
+- `injector.mjs --watch`：注入器，只监听页面 reload 重注入，不拉起进程、不自启
+- `ag-guard.mjs` / `ag-start-launcher.vbs` / `ag-probe-launcher.vbs` 等文件留在 tools——无计划任务触发即死代码，保留供开源用户和未来反悔用
+
+**⚠ 重装陷阱**：`install.ps1` / `install-guard.ps1` 会把 guard 计划任务装回来。本机重装后如不需要守护，装完即删：
+`schtasks /delete /tn "CodexDreamSkin AG Guard" /f`
+
+（v3.14 章节所述「裸开 Codex → 1~2 分钟守护接管」自本变更起失效。）
+
 ## ★ v3.16（2026-08-20，性能大工程：流式响应速度全面重构）
 
 **背景**：用户反馈「皮肤响应速度比原版慢很多」，要求作为大工程全面重构。定位出三大瓶颈：路由级 `:has()` 选择器在流式输出时反复失效重算、多层 blur 玻璃的重采样开销、infinite 动画常驻重绘，外加引擎 partObserver 高频全文档扫描。
