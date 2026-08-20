@@ -14,7 +14,11 @@
 
 3. **deploy.cjs 引擎 head 全量替换（212 条）**：head 中路由级 `:has()` 按六种模式（P1-P6）替换为属性选择器，含完整性守卫——部署后断言 head 中 `:has(main:is(...))` 全家族残留为零，防引擎升级引入新形态漏网；主体断言用平衡括号剥离法验证每处 `:has(main:is(...))` 都挂在 html 复合选择器上（引擎真实形态含属性选择器与 :is()/:not() 夹杂），非 html 主体出现即 fail-fast 人工复核。**有意保留**（流式期间零成本）：`[data-ds-part]` 作用域 `:has()`（属性写罕见）、子代组合器 `:has(>)`、首页静态门控内层、thread 头部 `div.sticky:has(input)`。
 
-4. **partObserver 双档调度补丁**（renderer-inject.js）：流式 token 变更（1-3 节点）调度延迟 80ms → 280ms，结构性批量变更（≥8 节点，如整块渲染完成）保持 80ms 且可抢占慢档——流式期间 DOM 扫描频率 12.5Hz → 3.6Hz，大块内容到达时不迟滞。
+4. **partObserver 双档调度补丁**（renderer-inject.js，v1）：流式 token 变更（1-3 节点）调度延迟 80ms → 280ms，结构性批量变更（≥8 节点，如整块渲染完成）保持 80ms 且可抢占慢档——流式期间 DOM 扫描频率 12.5Hz → 3.6Hz，大块内容到达时不迟滞。
+
+**v1 盲区修正（v2，用户实测「启动有点变慢」实锤）**：冷启动期 React 渐进渲染全是小批量（<8 节点），而引擎 `scheduleEnsure` 是合并语义（timeout 已排队则新 delay 被忽略）→ 冷启动标注节奏从 80ms 被拖到 280ms，皮肤首屏生效滞后 3.5 倍，窗口就绪期主线程忙还伴随「点叉无响应」体感。v2 增加冷启动宽限期（注入时未 load 给 5s、已 load 给 1.5s 尾巴），宽限期内一律 80ms 快档；deploy.cjs 内置 v1→v2 升级还原路径（幂等重入安全）。
+
+**叉失效排查结论（2026-08-20，与皮肤无关）**：CDP 实测 renderer 健康（往返 1ms、无遮挡层、v3.16 属性标注在位）、topbar DOM 无窗口控制按钮（原生 titleBarOverlay）、NCHITTEST 直发主窗口返回 HTCLOSE（原生层按钮健康）。用户场景的「点不动」最可能是启动期忙（v2 已修）；若仍复现，往 Codex 26.814 自身行为查（如关闭到托盘）。
 
 **部署验证**：`node tools/deploy.cjs` 后用 `_verify-v316.cjs`（仓库外一次性脚本）逐项核对：皮肤块 v3.16 标记、head 属性选择器计数（data-ag-homeshell 引用 = 13 等）、`:has(main:is` 族残留 = 0、ag-toggle v6 双 IIFE 注入、partObserver 补丁标记——**ALL PASS**。
 

@@ -150,21 +150,40 @@ const ANCHOR = '\n  return {\n    installed: true,';
 
 let engineJs = fs.readFileSync(ENGINE_JS, 'utf8');
 
-// 3a) 引擎 partObserver 双档调度补丁（v3.16 性能工程）
+// 3a) 引擎 partObserver 双档调度补丁（v3.16 性能工程，v2 冷启动修正）
 //     原状：任何 childList 变更 → 80ms 后 ensure({scope,parts}) —— 流式
 //     输出期间引擎以 12.5Hz 持续全文档扫描（refreshParts ~12 个
 //     querySelectorAll + message 节点全量枚举，长会话 100+ 节点）。
-//     补丁：单批 ≥8 节点（路由切换/新消息块/壳层重建）保持 80ms 快档
-//     并抢占已排队的慢档；小批量（流式 token，1~3 节点）走 280ms 慢档
-//     —— 流式期间扫描频率 12.5Hz → 3.6Hz（-71%），稳态行为不变。
-const PERF_MARKER = 'AG-PERF-PATCH v1';
+//     v1 补丁的盲区（用户实测"启动变慢"实锤）：冷启动期 React 渐进渲染
+//     全是小批量（<8 节点），且 scheduleEnsure 是合并语义（timeout 已排
+//     队则新 delay 被忽略）→ 标注节奏从 80ms 拖到 280ms，皮肤首屏生效
+//     滞后 3.5 倍。v2 修正：宽限期内（注入时未 load = 冷启动给 5s；已
+//     load = 重注入给 1.5s 尾巴）一律走 80ms 快档。
+//     稳态规则不变：单批 ≥8 节点（路由切换/新消息块）80ms 快档并抢占
+//     已排队慢档；小批量（流式 token，1~3 节点）280ms 慢档 —— 流式期
+//     间扫描频率 12.5Hz → 3.6Hz（-71%）。
+const PERF_MARKER = 'AG-PERF-PATCH v2';
 const OBSERVER_SRC = '    partObserver = new MutationObserver(() => scheduleEnsure({ scope: true, parts: true }, 80));';
+// 升级路径：v1 补丁块 → 还原原始行 → 下方统一重打 v2（幂等重入安全）
+const V1_PATCH_RE = / {4}partObserver = new MutationObserver\(\(records\) => \{[\s\S]*?\}\);\n/;
+if (engineJs.includes('AG-PERF-PATCH v1') && !engineJs.includes(OBSERVER_SRC)) {
+  if (!V1_PATCH_RE.test(engineJs)) {
+    console.error('FATAL: v1 perf patch present but revert pattern mismatch — engine updated?');
+    process.exit(1);
+  }
+  engineJs = engineJs.replace(V1_PATCH_RE, OBSERVER_SRC + '\n');
+  console.log('partObserver perf patch: v1 reverted for upgrade to v2');
+}
 const OBSERVER_PATCH = [
   '    partObserver = new MutationObserver((records) => {',
   '      // ' + PERF_MARKER + ': 流式 token 批量小（1~3 节点）走 280ms 慢档；',
-  '      // 结构性批量（≥8 节点：路由切换/新消息块/壳层重建）走 80ms 快档，',
-  '      // 并抢占已排队的慢档刷新。流式期间引擎 DOM 扫描 12.5Hz → 3.6Hz。',
-  '      let bulk = false;',
+  '      // 结构性批量（≥8 节点）或冷启动宽限期内（渐进渲染期无流式',
+  '      // 输出）走 80ms 快档，并抢占已排队的慢档。流式期间引擎 DOM',
+  '      // 扫描 12.5Hz → 3.6Hz；冷启动标注节奏不回退（v1 盲区修正）。',
+  '      if (typeof scheduler.agWarmupUntil !== "number") {',
+  '        scheduler.agWarmupUntil = Date.now() + (document.readyState === "complete" ? 1500 : 5000);',
+  '      }',
+  '      let bulk = Date.now() < scheduler.agWarmupUntil;',
   '      for (const record of records) {',
   '        if (record.addedNodes.length + record.removedNodes.length >= 8) { bulk = true; break; }',
   '      }',
@@ -176,7 +195,7 @@ if (engineJs.includes(PERF_MARKER)) {
   console.log('partObserver perf patch: already present (skip)');
 } else if (engineJs.includes(OBSERVER_SRC)) {
   engineJs = engineJs.replace(OBSERVER_SRC, () => OBSERVER_PATCH);
-  console.log('partObserver perf patch: applied (dual-rate 80/280ms + bulk preemption)');
+  console.log('partObserver perf patch: applied (dual-rate 80/280ms + bulk preemption + cold-boot fast lane)');
 } else {
   console.error('FATAL: partObserver source pattern not found — engine updated?');
   process.exit(1);
