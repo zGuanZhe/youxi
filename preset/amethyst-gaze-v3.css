@@ -965,13 +965,14 @@ footer) span:has(svg) {
   /* v3.8：thread-scroll-footer 首子 = 原生 from-surface 灰蓝实心
      渐变淡出层。v3.7 改紫墨仍露破绽。v3.17：26.818 该层比
      composer 宽 35px 且左移 84px，单侧 mask 左缘会露出实心
-     紫墨暗带（用户反馈"下方阴影块"）——mask 改两端对称淡出，
-     alpha .34→.26，渐变只在输入框正后方可见。 */
+     紫墨暗带——mask 改两端对称淡出。v3.17b：实测底部阴影
+     主体是轻纱罩 ::before 底沉（已在 section 8 减至 .12），
+     本层叠加其上，再降 .26→.16 防输入框正后方双重变暗。 */
 
   & [data-thread-scroll-footer="true"] > :first-child {
   background: linear-gradient(to top,
-    rgb(var(--ag-ink-rgb) / .26),
-    rgb(var(--ag-ink-rgb) / .12) 58%,
+    rgb(var(--ag-ink-rgb) / .16),
+    rgb(var(--ag-ink-rgb) / .07) 58%,
     transparent 100%) !important;
   -webkit-mask-image: linear-gradient(to right,
     transparent 1%, rgb(0 0 0) 9%, rgb(0 0 0) 91%, transparent 99%);
@@ -1148,7 +1149,12 @@ footer) span:has(svg) {
  *    用户消息=统一玻璃小泡；surface 只留轻纱罩。
  * ------------------------------------------------------------ */
 
-  /* 轻纱罩：只做纵向可读性，不再是大板。 */
+  /* 轻纱罩：只做纵向可读性，不再是大板。
+     v3.17b：底部沉渐 .38→.12 且起点 55%→85%——原版在整个
+     下半屏铺暗纱（978px 全宽、输入框后+两侧 = 用户看到的
+     "下方阴影块"，首页无 data-ag-bare 无轻纱罩故不受影响，
+     与用户反馈吻合）。输入框自带玻璃+投影，分界已存在，
+     底沉只需贴地一缕。 */
 
   & main:is(.main-surface,
 [data-app-shell-main-surface],
@@ -1163,7 +1169,8 @@ footer) span:has(svg) {
       rgb(var(--ag-ink-rgb) / .18) 0%,
       rgb(var(--ag-ink-rgb) / .05) 22%,
       rgb(var(--ag-ink-rgb) / .10) 55%,
-      rgb(var(--ag-ink-rgb) / .38) 100%),
+      rgb(var(--ag-ink-rgb) / .12) 85%,
+      rgb(var(--ag-ink-rgb) / .12) 100%),
     linear-gradient(90deg,
       rgb(var(--ag-ink-rgb) / .14) 0%,
       transparent 38%,
@@ -1182,7 +1189,8 @@ footer) span:has(svg) {
       rgb(255 252 248 / .26) 0%,
       rgb(255 252 248 / .08) 22%,
       rgb(var(--ag-ink-rgb) / .10) 55%,
-      rgb(var(--ag-ink-rgb) / .34) 100%),
+      rgb(var(--ag-ink-rgb) / .08) 85%,
+      rgb(var(--ag-ink-rgb) / .08) 100%),
     linear-gradient(90deg,
       rgb(255 250 244 / .24) 0%,
       transparent 38%,
@@ -1204,10 +1212,12 @@ footer) span:has(svg) {
      （现为 pointer-events-none fixed z-30 h-toolbar 族），
      旧 :has() 选择器失配 → 标题栏以原生结构存活并套上
      section 4 顶栏玻璃（= 用户看到的"标题漂移 + 多余色块"）。
-     新门控：data-ag-bare 是 thread 页 main 表面专属标注
-     （首页 main 无此属性），main 直接子 header 即对话名栏。 */
+     v3.17b：该组件首页（新对话）也在（空标题），用户要求
+     一并去掉 → 放弃父级门控，改特征选择器
+     h-toolbar + draggable 组合（实测全 DOM 仅对话名栏持有，
+     顶栏 menu bar 与代码块 sticky header 均不含）。 */
 
-  & main[data-ag-bare] > header {
+  & header[class*="h-toolbar"][class*="draggable"] {
   display: none !important;
   }
 
@@ -1333,8 +1343,8 @@ footer) span:has(svg) {
 [data-app-shell-main-surface],
 [class*="_MainContentSurface_"])[data-ag-bare] [class*="_CodeBlock_"] {
   background: linear-gradient(180deg,
-    rgb(16 11 24 / .88),
-    rgb(12 8 18 / .82)) !important;
+    rgb(16 11 24 / .66),
+    rgb(12 8 18 / .56)) !important;
   border: 1px solid rgb(var(--ag-hair-rgb) / .10) !important;
   box-shadow: 0 8px 22px rgb(8 5 14 / .24), var(--ag-glass-inset) !important;
   }
@@ -1342,7 +1352,7 @@ footer) span:has(svg) {
   & main:is(.main-surface,
 [data-app-shell-main-surface],
 [class*="_MainContentSurface_"])[data-ag-bare] [class*="_StickyActionBar_"] {
-  background: rgb(16 11 24 / .45) !important;
+  background: rgb(16 11 24 / .30) !important;
   background-image: none !important;
   border-bottom: 1px solid rgb(var(--ag-hair-rgb) / .12) !important;
   color: rgb(var(--ag-muted-rgb) / .92) !important;
